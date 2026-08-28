@@ -19,6 +19,10 @@ Atendimento e venda por WhatsApp · CRM preenchido pelo Agente · gestão e rela
 
 **Fora da v1, de propósito:** Open Finance · saúde, treino, dieta e medicação · prospecção fria · app nativo · integração com ERP/PDV.
 
+## MVP antes da v1
+
+O escopo acima é o destino da v1, não o primeiro corte de código. O MVP é bem mais estreito — uma Conta, um Agente no WhatsApp, Passagem para a Caixa de Entrada e um painel mínimo — sem CRM, sem anúncios e sem módulo financeiro. Ver ADR-0011.
+
 ## Cliente zero
 
 Clínica Humana. Ver ADR-0004 — é dela que vem a regra de nunca persistir Conteúdo Clínico.
