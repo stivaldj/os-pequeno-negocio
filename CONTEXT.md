@@ -26,6 +26,10 @@ _Evitar_: lead, usuário final, paciente
 A pessoa da Conta que recebe o aviso quando o Agente passa uma conversa para humano.
 _Evitar_: atendente, operador
 
+**Profissional** (`Professional`):
+Quem atende o Contato presencialmente na Conta — o médico, o dentista, o terapeuta. Tem expediente próprio, e é ele que o Contato escolhe ao marcar.
+_Evitar_: prestador, especialista, doutor
+
 ### O agente
 
 **Agente** (`Agent`):
@@ -87,6 +91,16 @@ _Evitar_: conversão, fechamento
 **Margem Declarada** (`DeclaredMargin`):
 Quanto o Dono diz que sobra em cada produto ou serviço, informado uma vez no Embarque. É o que torna possível calcular Sobra por Real.
 _Evitar_: markup, lucro, margem de contribuição
+
+### Agenda
+
+**Agendamento** (`Appointment`):
+Um compromisso marcado entre um Contato e um Profissional, com data e hora. Guarda quem, quando e com quem — **nunca por quê**. Motivo da consulta, sintoma e especialidade procurada não entram aqui, pela mesma regra do Conteúdo Clínico.
+_Evitar_: consulta, marcação, horário, sessão
+
+**Expediente** (`OpeningHours`):
+As faixas de horário em que uma Conta atende, e em que cada Profissional atende dentro dela. É do que se deriva o horário livre, e é o que define a Passagem por fora de horário.
+_Evitar_: horário de funcionamento, disponibilidade, agenda
 
 ### Dinheiro
 
