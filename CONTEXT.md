@@ -49,7 +49,7 @@ O momento em que o Agente para e entrega a Conversa a um humano. Tem um gatilho 
 _Evitar_: transbordo, escalonamento, transferência
 
 **Gatilho de Passagem** (`HandoffTrigger`):
-A condição que provoca uma Passagem. Os seis: pedido explícito de humano, menção a sintoma ou medicação, reclamação, pedido de desconto fora de tabela, dois erros seguidos do Agente, fora do expediente.
+A condição que provoca uma Passagem. Os cinco: pedido explícito de humano, menção a sintoma ou medicação, reclamação, pedido de desconto fora de tabela, dois erros seguidos do Agente. Estar fora do Expediente não é Gatilho — é aviso ao Contato, e o Agente segue atendendo (ADR-0013).
 _Evitar_: regra, condição
 
 **Caixa de Entrada** (`Inbox`):
@@ -57,7 +57,7 @@ A tela do painel onde as Conversas passadas para humano esperam resposta. Toda P
 _Evitar_: fila, chat interno
 
 **Conteúdo Clínico** (`ClinicalContent`):
-Texto de Contato que revela sintoma, condição, medicação ou especialidade procurada. Nunca é persistido — é reconhecido, provoca Passagem, e descartado.
+Texto que o Contato **escreve** revelando sintoma, condição ou medicação. Nunca é persistido — é reconhecido, provoca Passagem, e descartado. O que o Contato **escolhe** dentro do que o Agente ofereceu — um Profissional, um serviço — não é Conteúdo Clínico e não provoca Passagem (ADR-0012).
 _Evitar_: dado de saúde, informação médica
 
 ### Canal
@@ -139,5 +139,5 @@ O diagnóstico pago que abre a relação com um cliente novo — marca, redes, a
 _Evitar_: auditoria, diagnóstico, assessment
 
 **Embarque** (`Onboarding`):
-O processo de colocar uma Conta no ar: conectar Número, ligar Ferramentas, declarar Margens, vincular contas de anúncio.
+O processo de colocar uma Conta no ar: conectar Número por Coexistência (ADR-0014), ligar Ferramentas, declarar Margens, vincular contas de anúncio. No MVP para na conexão do Número e no cadastro de Profissionais, serviços e Expediente (ADR-0011).
 _Evitar_: setup, implantação, ativação
