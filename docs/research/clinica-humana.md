@@ -24,4 +24,6 @@ Os três só vêm do Dono.
 
 **Catorze especialidades colidem com a definição de Conteúdo Clínico.** A regra atual trata "especialidade procurada" como Conteúdo Clínico, e com esse cardápio quase todo pedido de Agendamento revela uma. Decisão aberta, ver a issue de `decisao` correspondente.
 
-**O número é fixo (4042).** A Cloud API aceita fixo, mas o número não pode estar registrado no app do WhatsApp — se estiver, há migração antes de conectar pela Kapso. Verificar antes da #3 terminar, não na #11.
+**O número é fixo (4042) e já está registrado no app do WhatsApp.** Confirmado com o Dono em 29/08/2026. A Cloud API aceita número fixo, mas não convive com o app: pelo caminho direto, é preciso deletar a conta, e aí "your existing messaging history will be lost, and you will be unable to use that number with the WhatsApp Business app again, unless you deregister the number from Cloud API" — [Migrate Existing Number](https://developers.facebook.com/docs/whatsapp/cloud-api/get-started/migrate-existing-whatsapp-number-to-a-business-account), lido em 29/08/2026.
+
+A mesma página abre a saída: onboarding "using a partner who supports business app number onboarding" preserva o histórico e deixa as duas plataformas conviverem. Se a Kapso suporta esse caminho é pergunta em aberto para eles — e é o que decide se o MVP tira ou não o WhatsApp da mão da recepção. Decisão aberta em issue própria.
