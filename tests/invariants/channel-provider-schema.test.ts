@@ -67,11 +67,13 @@ describe("0087 · o canal da sessão chega ao clone", () => {
     ).toBe("'waha'::text|NO");
   });
 
-  it("as três colunas do ramo meta_cloud existem", () => {
+  it("as três colunas do ramo meta_cloud existem — e a flag de Coexistência da 0206", () => {
     const cols = sql(`select column_name from information_schema.columns
                        where table_schema = 'public' and table_name = 'channel_sessions'
                          and column_name like 'meta\\_%' order by 1`).split("\n");
-    expect(cols).toEqual(["meta_phone_number_id", "meta_token_encrypted", "meta_waba_id"]);
+    // `meta_coexistence` (migration 0206, ADR-0015) não é ref de sessão: é a
+    // marca de que o número entrou por Embedded Signup com o app ainda vivo.
+    expect(cols).toEqual(["meta_coexistence", "meta_phone_number_id", "meta_token_encrypted", "meta_waba_id"]);
   });
 
   it("waha_session_name deixou de ser obrigatório — senão meta_cloud é inexprimível", () => {

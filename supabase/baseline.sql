@@ -17117,6 +17117,34 @@ grant  execute on function public.comando_da_conversa(public.conversations) to a
 -- packaging proíbe pedir a quem opera uma VPS.
 notify pgrst, 'reload schema';
 
+-- ---- canal fake para provas locais (migration 0204) ----
+--
+-- `fake_channel` é o `ChannelAdapter` das provas locais (Spec 0003, Fase 2):
+-- envia para uma caixa em memória e recebe pelo webhook genérico. O registry
+-- em `lib/channels/index.ts` só o conhece fora de produção.
+--
+-- O banco precisa aceitá-lo em `channel_sessions.provider` para o ingest achar
+-- a sessão. As duas constraints de provider são definidas UMA vez só, no bloco
+-- da migration 0132 acima (regra de `tests/unit/baseline-constraint-reconstruida.test.ts`):
+-- foi lá que `'fake_channel'` entrou no `provider_check` e o ramo
+-- `(provider = 'fake_channel' and waha_session_name is not null)` entrou no
+-- `provider_ref_check`. Este bloco existe para o histórico do baseline dizer
+-- QUANDO o vocabulário mudou; não tem DDL.
+
+-- ---- a sessão sabe que entrou por Coexistência (migration 0206) ----
+--
+-- ADR-0015: o Número pode entrar por Embedded Signup em Coexistência — o app do
+-- WhatsApp Business continua no telefone da recepção e a Cloud API opera o
+-- mesmo número. Quem entrou assim recebe eco do que a recepção responde pelo
+-- app (`smb_message_echoes`), e o Agente se cala por um intervalo após o eco.
+-- A flag é o que distingue esse número de um conectado à mão (BYO).
+alter table public.channel_sessions
+  add column if not exists meta_coexistence boolean not null default false;
+
+comment on column public.channel_sessions.meta_coexistence is
+  'true quando o número entrou por Embedded Signup em Coexistência (ADR-0015): o app do WhatsApp Business continua ativo no telefone e responde pelo mesmo número.';
+
+
 -- ---- VARREDURA anon: função nova nasce exposta em quem ATUALIZA (migration 0116) ----
 --
 -- ⚠️ ESTE BLOCO É, DE PROPÓSITO, O ÚLTIMO DO ARQUIVO. Apêndice novo entra ANTES
@@ -17190,30 +17218,3 @@ grant execute on function public.fn_decrypt_oauth(bytea) to service_role;
 grant execute on function public.fn_encrypt_oauth(text) to service_role;
 grant execute on function public.fn_lgpd_cascade_redact_contact(uuid, uuid, uuid) to service_role;
 grant execute on function public.fn_update_budget_consumption() to service_role;
-
--- ---- canal fake para provas locais (migration 0204) ----
---
--- `fake_channel` é o `ChannelAdapter` das provas locais (Spec 0003, Fase 2):
--- envia para uma caixa em memória e recebe pelo webhook genérico. O registry
--- em `lib/channels/index.ts` só o conhece fora de produção.
---
--- O banco precisa aceitá-lo em `channel_sessions.provider` para o ingest achar
--- a sessão. As duas constraints de provider são definidas UMA vez só, no bloco
--- da migration 0132 acima (regra de `tests/unit/baseline-constraint-reconstruida.test.ts`):
--- foi lá que `'fake_channel'` entrou no `provider_check` e o ramo
--- `(provider = 'fake_channel' and waha_session_name is not null)` entrou no
--- `provider_ref_check`. Este bloco existe para o histórico do baseline dizer
--- QUANDO o vocabulário mudou; não tem DDL.
-
--- ---- a sessão sabe que entrou por Coexistência (migration 0206) ----
---
--- ADR-0015: o Número pode entrar por Embedded Signup em Coexistência — o app do
--- WhatsApp Business continua no telefone da recepção e a Cloud API opera o
--- mesmo número. Quem entrou assim recebe eco do que a recepção responde pelo
--- app (`smb_message_echoes`), e o Agente se cala por um intervalo após o eco.
--- A flag é o que distingue esse número de um conectado à mão (BYO).
-alter table public.channel_sessions
-  add column if not exists meta_coexistence boolean not null default false;
-
-comment on column public.channel_sessions.meta_coexistence is
-  'true quando o número entrou por Embedded Signup em Coexistência (ADR-0015): o app do WhatsApp Business continua ativo no telefone e responde pelo mesmo número.';

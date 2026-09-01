@@ -28,8 +28,8 @@ describe("eco do app silencia o Agente pela regra do banco", () => {
     const depois = sql(`
       select public.fn_comando_da_conversa('open', null, '2026-09-02T10:10:05Z'::timestamptz, false, false, '2026-09-02T10:11:00Z'::timestamptz);
     `);
-    expect(durante).not.toBe("ia");
-    expect(depois).toBe("ia");
+    expect(durante).toBe("aguardando");
+    expect(depois).toBe("automatico");
   });
 
   it("a coluna meta_coexistence existe e nasce falsa", () => {
