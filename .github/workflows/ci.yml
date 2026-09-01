@@ -38,8 +38,17 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # O repo é privado: `ubuntu-latest` aqui é o runner de 2 vCPU / 7 GB, não
+      # o de 4 vCPU / 16 GB que o upstream (público) recebe com o mesmo yaml.
+      # Nesse runner o heap default do Node fica em ~2 GB e o `tsc` do repo
+      # inteiro (tsconfig.typecheck.json inclui os testes) morre com
+      # "JavaScript heap out of memory" (exit 134). Só no passo, e não no job,
+      # porque o vitest sobe um worker por core e o mesmo teto multiplicado
+      # passaria da RAM do runner.
       - name: Typecheck
         run: pnpm typecheck
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
 
       - name: Lint
         run: pnpm lint
