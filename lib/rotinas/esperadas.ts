@@ -37,4 +37,5 @@ export const ROTINAS_ESPERADAS: readonly RotinaEsperada[] = [
   { nome: "sync-model-catalog", periodoMinutos: 1440 },
   { nome: "data-retention", periodoMinutos: 1440 },
   { nome: "rotinas-vigia", periodoMinutos: 60 },
+  { nome: "clinica-vigia", periodoMinutos: 60 },
 ];

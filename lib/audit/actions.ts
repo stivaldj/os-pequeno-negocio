@@ -396,6 +396,12 @@ export const AUDIT_ACTIONS = [
   // rodada do vigia: rodada que achou tudo em dia não audita, como manda a
   // regra do cron desta base.
   "rotinas.nao_rodou",
+  // O vigia clínico (`lib/clinica/vigia.ts`) achou uma resposta do Agente que
+  // parece prescrição, diagnóstico ou orientação terapêutica (ADR-0012). Uma
+  // linha por resposta apontada, com o motivo e o id — NUNCA o texto: ele fica
+  // em `messages`, e a trilha não é lugar de Conteúdo Clínico (ADR-0004).
+  // Rodada que não achou nada não audita.
+  "clinica.ato_medico_suspeito",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */

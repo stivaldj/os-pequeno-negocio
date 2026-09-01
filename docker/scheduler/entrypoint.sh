@@ -82,6 +82,7 @@ CRONS="
 15 4 * * *|60|api/v1/cron/sync-model-catalog
 40 4 * * *|120|api/v1/cron/data-retention
 7 * * * *|60|api/v1/cron/rotinas-vigia
+23 * * * *|60|api/v1/cron/clinica-vigia
 "
 
 # CRONTAB_PATH é ponto de injeção do teste (tests/shell/scheduler-entrypoint.test.sh).
