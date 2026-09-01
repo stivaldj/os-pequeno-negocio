@@ -1,0 +1,309 @@
+name: Publicar imagem Docker (GHCR)
+
+# Builda as imagens GENÉRICAS que o self-hoster instala e publica no GitHub
+# Container Registry. O leigo puxa no VPS (não builda lá). Roda nos runners do
+# GitHub, então o build pesado nunca cai no VPS do usuário.
+#
+# São TRÊS imagens, e a razão de o worker e o scheduler estarem aqui é um defeito
+# real: o serviço `worker` não tinha `image:` no compose de produção, só `build:`.
+# Serviço build-only é pulado por `docker compose pull` e imune a `up -d` sem
+# `--build` — ele era construído na VPS de cada cliente, no install, e NENHUM
+# update.sh jamais o reconstruiu. O runtime do agente de IA congelava no código
+# do dia da instalação. Doutrina: docs/doctrine/packaging.md, invariante 1.
+
+on:
+  push:
+    tags: ["v*"]
+    branches: ["main"]
+  # NÃO acrescente `release: types: [published]` aqui. Ele já esteve, e o efeito
+  # foi medido na v1.3.0: `gh release create` empurra a tag E publica a release,
+  # então o MESMO commit foi construído DUAS vezes, com 5 minutos de diferença.
+  #
+  #   19:53:04  evento=push     v1.3.0 -> publicou 1.3.0, 1.3 e stable
+  #   19:58:05  evento=release  v1.3.0 -> reconstruiu e MOVEU 1.3.0 e 1.3,
+  #                                       sem mover stable (a condição exige push)
+  #
+  # Duas consequências, e a segunda é a grave:
+  #
+  # 1. `stable` e `1.3.0` ficaram em digests DIFERENTES (mesmo `revision`
+  #    9bd59e9 e mesmo `version`, builds distintos) — quem comparasse os dois
+  #    concluiria, com razão, que são artefatos diferentes.
+  # 2. A tag de VERSÃO foi movida depois de publicada. A doutrina inteira se
+  #    apoia em "instalação de cliente aponta para número de versão, nunca para
+  #    tag móvel" (docs/doctrine/packaging.md, invariante 3) — e era o nosso
+  #    próprio workflow movendo o número. Republicar uma release antiga (editar
+  #    e salvar) reconstruiria e moveria aquela versão de novo.
+  #
+  # O gatilho de push da tag já cobre o fluxo real: a tag é sempre empurrada,
+  # com ou sem release. Vigiado por tests/unit/packaging-artefato-do-cliente.test.ts.
+  # Em PR a imagem é CONSTRUÍDA e não publicada. Sem isto, nada no PR consegue
+  # revelar que a mudança quebra a imagem — foi assim que um bump de `next`
+  # passou por `verify`, `build-and-size`, `invariants` e `e2e` (os quatro
+  # obrigatórios) e derrubou o build do Dockerfile na `main`: o `next build`
+  # dentro da imagem não enxerga `tests/` (`.dockerignore`), e a partir do
+  # next 16.3 ele typecheca os `*.test.ts` colocados. O artefato que o
+  # self-hoster instala era o único sem gate.
+  pull_request:
+  workflow_dispatch: {}
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  # Nenhuma tag publica sem estar CONTIDA na `main`.
+  #
+  # `on: push: tags: ["v*"]` reage a tag de QUALQUER ramo, e nenhuma das três
+  # condições do canal `stable` (mais abaixo) olha procedência — nem o
+  # `type=semver`, que publica `X.Y.Z` do mesmo jeito. A branch protection não
+  # cobre isto: ela vale para a branch `main`, não para refs de tag.
+  #
+  # E o alcance disso é o parque inteiro: `hostgator-setup-kit/agent.sh` oferece
+  # a MAIOR tag `v*` a toda VPS instalada, sem olhar de onde ela veio. Este repo
+  # já teve na árvore local uma tag `v1.4.0` de um FORK — ela existe hoje
+  # renomeada para `jmpo/v1.4.0` justamente para não colidir com a numeração
+  # daqui.
+  a-tag-veio-da-main:
+    runs-on: ubuntu-latest
+    # Sem o bloco, o token herda o default do REPOSITÓRIO — configuração que vive
+    # fora do repo. Mesma razão do `permissions: {}` de `imagens-ok`.
+    permissions:
+      contents: read
+    steps:
+      - name: A tag está contida na main?
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Sem `if:` no job, de propósito: job pulado deixa `build-and-push`
+          # pulado também, e `imagens-ok` (que roda com `always()`) lê `skipped`
+          # como reprovação. Em PR e em push de branch este job RODA e sai zero.
+          if [ "${GITHUB_REF_TYPE}" != "tag" ]; then
+            echo "não é push de tag (${GITHUB_REF_TYPE}) — nada a conferir"
+            exit 0
+          fi
+          estado=$(gh api "repos/${GITHUB_REPOSITORY}/compare/main...${GITHUB_SHA}" --jq .status)
+          echo "compare main...${GITHUB_SHA} → ${estado}"
+          # `identical` = a tag é o topo da main; `behind` = está atrás dela, ou
+          # seja, contida. `ahead` e `diverged` são commit que a main não tem.
+          case "$estado" in
+            identical|behind) echo "ok: o commit da tag está contido na main" ;;
+            *)
+              echo "::error::A tag ${GITHUB_REF_NAME} aponta para um commit que a main NÃO contém (${estado})."
+              echo "::error::Publicar isso entregaria ao parque instalado código que nunca passou pelo CI da main."
+              exit 1
+              ;;
+          esac
+
+  build-and-push:
+    needs: [a-tag-veio-da-main]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      # fail-fast desligado: se o worker quebrar, ainda quero saber se o app
+      # também quebrou. Com ele ligado, o primeiro erro esconde os outros dois e
+      # o conserto vira uma rodada por imagem.
+      fail-fast: false
+      matrix:
+        include:
+          - name: deskcommcrm
+            dockerfile: Dockerfile
+            title: DeskcommCRM
+          - name: deskcomm-worker
+            dockerfile: Dockerfile.worker
+            title: DeskcommCRM worker
+          - name: deskcomm-scheduler
+            dockerfile: Dockerfile.scheduler
+            title: DeskcommCRM scheduler
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # A versão que a imagem vai reportar em /api/v1/health. Numa tag v1.2.3 é
+      # "1.2.3"; fora de tag, o SHA curto — que ainda responde "o que está
+      # rodando aqui?", que é a pergunta que o campo existe para responder.
+      - name: Resolver APP_VERSION
+        id: ver
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Docker metadata (tags/labels)
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.name }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            # `enable={{is_default_branch}}` NÃO basta: o metadata-action o
+            # considera verdadeiro também num push de TAG, então toda release
+            # movia `latest` junto. Isso apagava a distinção que a doutrina
+            # inteira depende — `latest` = topo da main, `stable` = última
+            # release — e fazia `latest` oscilar entre os dois.
+            type=raw,value=latest,enable=${{ github.ref_type == 'branch' && github.ref_name == 'main' }}
+            # `stable` = a última RELEASE publicada. Existe porque `latest` aqui
+            # significa topo da `main` (código não lançado), e o nome engana:
+            # quem quer "a última versão estável" pedia `latest` e recebia edge.
+            # Trocar o significado de `latest` faria downgrade silencioso em quem
+            # já o consome, então o canal novo é o que ganha o nome certo.
+            # Três condições, e cada uma barra um caminho medido. `ref_type ==
+            # 'tag'` sozinho deixaria um dispatch numa branch mover o canal;
+            # `startsWith(…, 'v')` barra tag de teste (o registry já tem uma
+            # `quebrada-teste`, que nenhum push na main consegue produzir);
+            # e `event_name == 'push'` barra o pior caso — um dispatch numa
+            # release ANTIGA faria `stable` REGREDIR, e todo self-hoster no
+            # default do compose sofreria downgrade silencioso no próximo
+            # `up -d`, com app velho sobre banco já migrado.
+            type=raw,value=stable,enable=${{ github.event_name == 'push' && github.ref_type == 'tag' && startsWith(github.ref_name, 'v') }}
+          labels: |
+            org.opencontainers.image.title=${{ matrix.title }}
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build e push (imagem genérica — sem segredos)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          # linux/amd64: o VPS HostGator e a imagem do WAHA são amd64.
+          platforms: linux/amd64
+          # PR de fork não tem permissão de escrita no GHCR, e publicar imagem
+          # de código não revisado seria pior que não gatear. Em PR: constrói
+          # (que é o gate) e descarta.
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            APP_VERSION=${{ steps.ver.outputs.value }}
+          # Cache por imagem: as três têm camadas diferentes e um escopo único
+          # faria uma sobrescrever o cache da outra a cada run.
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+          # Sem build-args de segredo: a imagem é genérica (NEXT_PUBLIC_* viram
+          # placeholder; valores reais entram em runtime no VPS do usuário).
+
+  # A imagem do app CONSTRÓI e MORRE ao subir? Este job existe porque isso
+  # aconteceu: `next@16.3.1` passou a resolver `@swc/helpers` por ESM, o file
+  # tracing do `output: standalone` levou 2 dos 108 arquivos do pacote, e o
+  # container entrou em crashloop com MODULE_NOT_FOUND. A imagem construiu,
+  # `imagens-ok` ficou verde, ela foi publicada — e o defeito só apareceu no
+  # `docker compose up` da VPS, com a produção fora do ar.
+  #
+  # "Constrói" nunca foi prova de "sobe". O gate mede o boot: erguer o
+  # container com env de mentira e exigir que o Next chegue a "Ready". Um 500
+  # depois disso é esperado (não há Supabase aqui) e não reprova — o que
+  # reprova é o processo não chegar a servir.
+  imagem-do-app-sobe:
+    needs: [a-tag-veio-da-main]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build local da imagem do app (sem push)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: deskcomm-smoke:pr
+          build-args: |
+            APP_VERSION=smoke
+          # Mesmo escopo de cache do build-and-push: as camadas são idênticas,
+          # então na prática este job reaproveita aquele build em vez de repeti-lo.
+          cache-from: type=gha,scope=deskcommcrm
+
+      - name: O container chega a servir?
+        run: |
+          set -euo pipefail
+          docker run -d --name smoke -p 3000:3000 \
+            -e NEXT_PUBLIC_SUPABASE_URL=https://exemplo.supabase.co \
+            -e NEXT_PUBLIC_SUPABASE_ANON_KEY=chave-de-mentira \
+            -e SUPABASE_SERVICE_ROLE_KEY=chave-de-mentira \
+            -e SUPABASE_DB_URL=postgres://u:p@127.0.0.1:5432/postgres \
+            -e SENTRY_DSN=off \
+            deskcomm-smoke:pr
+
+          # Espera o boot; falha rápido se o processo morreu (crashloop).
+          pronto=nao
+          for _ in $(seq 1 40); do
+            if ! docker ps --filter name=smoke --filter status=running -q | grep -q .; then
+              echo "::error::o container do app MORREU durante o boot"
+              docker logs smoke 2>&1 | tail -40
+              exit 1
+            fi
+            if docker logs smoke 2>&1 | grep -qE "Ready in|started server on"; then
+              pronto=sim
+              break
+            fi
+            sleep 3
+          done
+
+          if [ "$pronto" != "sim" ]; then
+            echo "::error::o app não chegou a servir em 120s"
+            docker logs smoke 2>&1 | tail -40
+            exit 1
+          fi
+
+          # A assinatura exata do defeito que originou este gate — explícita,
+          # para o log dizer o que houve em vez de só "não subiu".
+          if docker logs smoke 2>&1 | grep -q "MODULE_NOT_FOUND"; then
+            echo "::error::falta módulo no standalone (o defeito do @swc/helpers)"
+            docker logs smoke 2>&1 | grep -A5 MODULE_NOT_FOUND | head -20
+            exit 1
+          fi
+
+          echo "o app chegou a servir:"
+          docker logs smoke 2>&1 | grep -E "Ready in|Next.js" | head -3
+
+      - name: Encerrar
+        if: always()
+        run: docker rm -f smoke 2>/dev/null || true
+
+  # Job de fachada: dá UM nome estável para a branch protection exigir. Sem ele,
+  # o required check teria que listar as três instâncias da matriz pelo nome
+  # gerado, e acrescentar uma quarta imagem um dia quebraria o gate em silêncio —
+  # o merge voltaria a passar sem que ninguém tivesse decidido isso.
+  imagens-ok:
+    if: always()
+    runs-on: ubuntu-latest
+    # Nenhuma permissão: este job só lê o resultado de `needs` e sai. Sem o bloco,
+    # o GITHUB_TOKEN herdaria o default do REPOSITÓRIO — configuração que vive fora
+    # do repo, muda num clique e não passa por PR.
+    #
+    # A regra e o gate que a impõe vieram do PR #241 (alertas do CodeQL), de um
+    # contribuidor. O teste dele pegou este job: eu o criei sem o bloco, e o defeito
+    # só apareceu quando a `main` entrou naquela branch. É o próprio caso que a
+    # justificativa do teste antecipa — "um job novo nasce sem bloco e herda o
+    # default de novo".
+    permissions: {}
+    needs: [build-and-push, imagem-do-app-sobe]
+    steps:
+      - name: Falhar se qualquer imagem não construiu — ou se o app não sobe
+        run: |
+          echo "build-and-push:     ${{ needs.build-and-push.result }}"
+          echo "imagem-do-app-sobe: ${{ needs.imagem-do-app-sobe.result }}"
+          [ "${{ needs.build-and-push.result }}" = "success" ]
+          [ "${{ needs.imagem-do-app-sobe.result }}" = "success" ]

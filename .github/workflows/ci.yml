@@ -1,0 +1,93 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# O GITHUB_TOKEN destes jobs serve a `actions/checkout` (clone) e a
+# `actions/setup-node` (manifest de `actions/node-versions`, repo público) —
+# `contents: read` cobre os dois, que é o escopo que o próprio modelo de dados do
+# CodeQL prescreve para essas duas actions. O `cache: pnpm` NÃO usa este token
+# (usa ACTIONS_RUNTIME_TOKEN), `pnpm/action-setup` não tem input de token, e
+# nenhum passo `run:` enxerga o token — ele só entra no ambiente via
+# `secrets.GITHUB_TOKEN`, que não aparece em nenhum destes workflows.
+#
+# No topo, e não por job, porque os dois jobs precisam do mesmo escopo e job
+# acrescentado depois nasce restrito em vez de herdar o default do repositório.
+# Esse default hoje é `read` (medido em actions/permissions/workflow), então isto
+# não corrige vazamento em vigor: tira a garantia de uma configuração que muda
+# fora do repo, num clique, sem PR e sem deixar rastro aqui. `packages: write`
+# continua por job em publish-image.yml — mesma regra, menor escopo que precisa.
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      # Invariante 1 de docs/doctrine/restricao-de-canal.md: nenhuma feature
+      # nomeia um provider. Step próprio (e não só dentro de `gov:verify`)
+      # porque é o CI que gateia PR — `gov:verify` não é invocado por nenhum
+      # workflow, e mecanismo que não roda no gate não protege nada.
+      - name: Channel provider leak
+        run: pnpm lint:channels
+
+      - name: Unit tests
+        run: pnpm test:unit
+
+
+      # Scripts do kit self-host num repo git descartável (docker/crontab
+      # dublados). É o único gate que exercita o update.sh — um erro aqui
+      # rebobina a instalação de quem hospeda, e nenhum teste TS o veria.
+      #
+      # Desde 2026-08-08 inclui `hostgator-setup-kit/test-validators.sh`, os 163
+      # casos que cobrem o install.sh. Eles existiam e NÃO rodavam em job nenhum
+      # (issue #191): dois defeitos que tornavam a instalação impossível —
+      # escolher OpenRouter travava o instalador num laço, escolher OpenAI
+      # deixava o .env pela metade — passaram por todos os checks verdes. 15s.
+      - name: Kit self-host (bash)
+        run: pnpm test:shell
+
+  # Gate de isolamento multi-tenant + invariantes de governança.
+  # Job separado de propósito: roda em paralelo ao verify (não atrasa o feedback
+  # rápido) e vira um check nomeado, que é o que a doutrina de RLS exige provar.
+  # scripts/test-db.sh sobe pgvector/pgvector:pg17, aplica supabase/baseline.sql
+  # em modo install (ON_ERROR_STOP=1) e update (idempotência), e roda
+  # tests/invariants/** contra ele. Invocar via `pnpm test:db` é o que põe
+  # node_modules/.bin no PATH que o script herda para chamar `vitest`.
+  invariants:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: RLS isolation + governance invariants
+        run: pnpm test:db

@@ -1,0 +1,724 @@
+name: e2e
+
+# Issue #63: as specs de tests/e2e/ não rodavam em lugar nenhum. Este job fecha o
+# buraco com o subconjunto que não depende de serviço externo.
+#
+# NÃO conte aqui quantas são: o summary do job CONTA em vez de afirmar, e
+# `tests/unit/e2e-cobertura-completa.test.ts` reprova o build quando uma spec do
+# disco não está em nenhuma das três listas abaixo. Um número escrito nesta linha
+# é a quarta fonte da mesma verdade, e as três anteriores já divergiram — este
+# cabeçalho dizia "29 de 33" quando o disco tinha 45 e o job rodava 44.
+#
+# A execução é dividida em DUAS invocações do playwright de propósito: o
+# limitador de login do produto é por IP (60/300s) e no CI todos os specs vêm do
+# mesmo 127.0.0.1. Ver o comentário do passo "E2E — parte 1 de 2".
+#
+# É CHECK OBRIGATÓRIO. A régua, para reconferir em vez de acreditar nesta linha:
+#   $ gh api repos/melgarafael/DeskcommCRM/branches/main/protection \
+#       --jq '.required_status_checks.contexts|join(", ")'
+#   verify, build-and-size, invariants, e2e, imagens-ok   # medido em 2026-08-14
+#
+# São CINCO. A versão anterior deste bloco colava a saída de 2026-08-12, com
+# quatro — `imagens-ok` virou obrigatório em 2026-08-13, um dia depois. Trocar
+# uma afirmação vencida por outra vencida é o mesmo defeito, e o commit
+# bcd88c30 desta branch existe justamente por causa dele: quem lê aqui para
+# saber contra o que medir concluiria que imagem quebrada não segura merge.
+# Este cabeçalho afirmou o contrário ("NÃO-BLOQUEANTE por ausência… quando N
+# execuções seguidas passarem limpas, adicionar aos obrigatórios") por tempo
+# demais depois de a promoção ter acontecido — e quem lesse isso mediria o custo
+# de uma mudança contra a régua errada.
+#
+# O job falha honestamente: a primeira versão usava `continue-on-error: true` no
+# job inteiro e reportou VERDE com o `supabase start` quebrado e zero teste
+# executado. Verde que não distingue "passou" de "nem rodou" é pior que vermelho.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# O GITHUB_TOKEN deste job serve a `actions/checkout` (clone) e a
+# `actions/setup-node` (manifest de `actions/node-versions`, repo público).
+#
+# `supabase/setup-cli@v3` merece a frase inteira, porque a resposta curta está
+# errada: ele é `using: composite` e aninha `oven-sh/setup-bun`, cujo input
+# `token` tem default `${{ github.token }}` — o token É repassado. Com o
+# `.bun-version` do setup-cli fixo em semver exato, o caminho que gasta o token
+# (api.github.com/repos/oven-sh/bun/git/refs/tags) não é tomado; se um dia for, é
+# leitura de repo público e `contents: read` basta. Grep no `action.yml` de topo
+# não enumera consumidor de token quando a action é composite: o consumidor mora
+# um nível abaixo.
+#
+# `actions/upload-artifact@v7` não tem input de token: publica pela Actions
+# Results API, com ACTIONS_RUNTIME_TOKEN + ACTIONS_RESULTS_URL. Nenhum passo
+# `run:` enxerga o GITHUB_TOKEN — ele só entra no ambiente via
+# `secrets.GITHUB_TOKEN`, ausente aqui.
+permissions:
+  contents: read
+
+jobs:
+  # AS DUAS PARTES RODAM EM PARALELO, e o motivo é medido, não estético.
+  #
+  # Elas rodavam como dois passos do MESMO job, então somavam contra um único
+  # teto de 30 min. Medido no run 33125422531, o último verde antes deste
+  # conserto: parte 2 = 16,3 min, parte 1 = 8,2 min, setup (build + Supabase +
+  # browser) ≈ 4,5 min — total ≈ 29 min, com 1 min de folga. A folga acabou:
+  # dois runs da própria `main` foram CANCELADOS em 30 min exatos (23:30→00:00
+  # e 23:26→23:56 de 2026-08-27), e um PR de UM arquivo foi cancelado junto.
+  #
+  # Em paralelo, cada parte paga o setup uma vez e tem o teto inteiro para si:
+  # o job mais longo passa a ser ≈ 21 min em vez de ≈ 29.
+  #
+  # E há um ganho que não era o objetivo: a razão de existirem duas partes é
+  # "processo novo, contador de login zerado" — o teto por IP. Runners de
+  # matrix são máquinas diferentes, com IPs diferentes, então a separação
+  # deixa de depender de reiniciar o processo.
+  #
+  # O teto de 30 min FICA. Ele é o que denuncia a suíte crescendo de novo;
+  # subi-lo seria trocar um vermelho honesto por um CI que demora mais a cada
+  # mês sem ninguém perceber.
+  e2e-parte:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      # Sem fail-fast: se a parte 1 quebrar, ainda quero saber se a 2 também.
+      # Com ele ligado, o primeiro vermelho esconde o outro e o conserto vira
+      # uma rodada por parte.
+      fail-fast: false
+      matrix:
+        parte: [1, 2]
+    # ─────────────────────────────────────────────────────────────────────────
+    # A COBERTURA DEIXA DE SER PROSA DIGITADA À MÃO.
+    #
+    # Antes, as listas viviam nos dois `run:` e a declaração do que NÃO é coberto
+    # era um `echo` escrito à mão. As duas fontes divergiram em silêncio: o texto
+    # dizia "32 de 33 specs" quando o disco tinha 39 e o job rodava 36 — e as
+    # ausentes eram justamente as novas, incluindo `agente-papeis-operador`, a
+    # prova de tela do épico dos três papéis, que nunca rodou em job nenhum.
+    #
+    # Cobertura parcial silenciosa se lê como cobertura total. Agora há UMA fonte
+    # por lista, o summary CONTA em vez de afirmar, e
+    # `tests/unit/e2e-cobertura-completa.test.ts` reprova o build quando um arquivo
+    # de spec não está em nenhuma das três listas.
+    #
+    # FORA_DO_CI exige motivo escrito no próprio nome do bloco abaixo — spec fora
+    # do gate sem razão declarada é a dívida voltando pela porta de serviço.
+    # ─────────────────────────────────────────────────────────────────────────
+    #
+    # ═══ O 429 DE `olhar-telas-do-epico`: RESOLVIDO DUAS VEZES, EM CAMADAS DIFERENTES ═══
+    #
+    # A spec reprovava com **429** em TODAS as 7 telas, falha PRÉ-EXISTENTE NA MAIN (run
+    # 31343408488, main, 2026-08-10T00:03, lista byte-idêntica).
+    #
+    # Duas sessões chegaram à MESMA causa raiz em paralelo, sem se ver, e os dois
+    # consertos são complementares — nenhum torna o outro dispensável:
+    #
+    #  - `a60cae2d` (main, PR #220) desligou a telemetria NO AMBIENTE DO CI:
+    #    `SENTRY_DSN: "off"` no build e nas duas partes (e no `perf.yml`). Ver o
+    #    comentário do passo "Build de produção" abaixo — a armadilha é que vazio NÃO
+    #    desliga, seleciona o Sentry da comunidade.
+    #  - `77b4a486` (este PR) consertou O PRODUTO: o SDK do browser mandava duas SESSÕES
+    #    de release health por NAVEGAÇÃO para o DSN da comunidade — de toda instalação
+    #    self-host, não só do CI. `browserSessionIntegration` é default do SDK e
+    #    `integrations: [x]` SOMA aos defaults, então a política "no Sentry da comunidade,
+    #    só erro" estava declarada e não estava em vigor. Detalhe em `lib/sentry/dsn.ts`;
+    #    o gate é `tests/unit/sentry-comunidade-so-erro.test.ts`.
+    #
+    # O ingest respondia `429` com `x-sentry-rate-limits: 60::organization:suspended` —
+    # lista de categorias vazia, isto é, TODAS: a organização estava suspensa por cota, e
+    # cada tentativa barrada virava erro de console, que é o que esta spec cobra.
+    #
+    # FONTE DA VERDADE do ambiente da suíte é `scripts/gerar-env-e2e.sh` (o `.env.e2e`
+    # que o passo "Publicar" joga no `$GITHUB_ENV`, e que vale também para quem roda
+    # local). As três linhas `SENTRY_DSN: "off"` de nível de passo FICAM como segunda
+    # camada — `env:` de passo vence o `$GITHUB_ENV`, então elas protegem o CI se o
+    # gerador mudar. Duas fontes que CONCORDAM e uma delas declarada como principal;
+    # apagar as do colega para "limpar duplicação" seria trocar defesa por estética.
+    #
+    # Três hipóteses minhas caíram por medição, e o custo delas foi maior que o do
+    # conserto. As duas primeiras foram descartadas na época:
+    #
+    #  1. "a parte 2 está sobrecarregada" — caiu de 69 para 53 testes, falha byte-idêntica.
+    #  2. "as specs anteriores exaurem o contador" — posta em PRIMEIRO lugar, contador
+    #     limpo, as mesmas 7 telas deram 429, inclusive a primeira.
+    #  3. "é o fallback em memória do limitador" — foi o que este comentário afirmou como
+    #     "a pista que sobra". MEDIDO no job real: 120 quedas para memória, 103 delas no
+    #     bucket `auth:login:ip` contra teto de 1000. O limitador não barrou nada.
+    #
+    # A lição operacional é sobre INSTRUMENTO, não sobre limitador: a mensagem do browser
+    # para requisição barrada é "Failed to load resource: ... 429" e não diz QUEM
+    # respondeu; a spec descartava `m.location()` e o relatório não guarda trace, então a
+    # única cópia do endereço morria ali. Três runs foram gastos adivinhando o dono de um
+    # 429 cuja URL o próprio teste tinha em mãos. A spec agora registra a URL.
+    #
+    # `AUTH_RATE_LIMIT_LOGIN_IP` segue existindo pelo motivo dele (o teto por IP no CI é
+    # um runner só) e não teve nada a ver com isto. Afrouxar o limitador do produto para
+    # acomodar teste segue sendo a troca errada — e aqui não foi preciso.
+    #
+    # A ordem das listas voltou ao que era: mudá-la foi tentativa que não se sustentou,
+    # e deixar a mudança de pé com um comentário dizendo "hipótese" seria pior — o
+    # próximo leitor herdaria uma decisão tomada por um motivo medido FALSO.
+    #
+    # O rebalanceamento das duas partes FICA, por outro motivo e sem alegar mais do que
+    # faz: 6,5 + 8,1 min em vez de 2,7 + 12,2.
+    env:
+      SPECS_PARTE_1: >-
+        smoke.spec.ts auth.spec.ts error-pages.spec.ts
+        icone-da-marca.spec.ts
+        password-recovery.spec.ts signup-journey.spec.ts
+        rbac-roles.spec.ts inbox-scope.spec.ts reset-password-mfa.spec.ts
+        degradacao-silenciosa.spec.ts vps-webhook-outbound-ssrf.spec.ts
+        kanban-owner-filter.spec.ts queue-assign.spec.ts
+        conversa-vira-lead.spec.ts contato-salva-email.spec.ts
+        confirmar-dado-do-contato.spec.ts
+        risk-radar.spec.ts invite-lifecycle.spec.ts system-update.spec.ts
+        agente-papeis-operador.spec.ts prova-painel-provedores.spec.ts
+        followup-linguagem.spec.ts followup-ramos.spec.ts
+        wizard-do-funcionario.spec.ts mfa-opcional.spec.ts inbox-responder-citando.spec.ts
+        agenda-tela-do-produto.spec.ts
+        notificacoes-diz-o-que-falta.spec.ts
+        relogio-http-cron-externo.spec.ts
+      # ⚠️ A ORDEM DESTA LISTA NÃO DECIDE A ORDEM DE EXECUÇÃO. O Playwright
+      # ordena os arquivos por CAMINHO, não pela ordem em que são passados na
+      # linha de comando. Medido no run 31838253496: `marca-logo.spec.ts` estava
+      # escrita por último aqui e executou em 15º de 23 — a linha de progresso
+      # `···F°°··············` mostra 14 testes completando DEPOIS dela.
+      #
+      # Este comentário afirmava, por três commits, que ela era "a ÚLTIMA de
+      # propósito" e que isso limitava contaminação a zero specs. Era falso, e
+      # a consequência foi pior que o comentário errado: creditei a esse
+      # reposicionamento o desaparecimento do React #418 entre dois ciclos.
+      # Não foi ele — a ordem nunca mudou. Foi o `test.afterAll` da própria
+      # spec, que passou a limpar as DUAS camadas de marca e por isso as specs
+      # seguintes deixaram de ver logo gravado.
+      #
+      # O que continua verdade: as duas partes rodam como passos do MESMO job,
+      # contra o MESMO banco, sem reset entre elas — o que uma spec deixa
+      # gravado, as seguintes enxergam. Quem protege contra isso é a limpeza da
+      # spec, não a posição dela nesta lista.
+      #
+      # ⚠️ Ela esteve no TOPO desta lista por três commits, pela razão errada.
+      # Eu media "carga de login por parte" com um regex que contava a PALAVRA
+      # login — e casava comentário, nome de helper e string. O proxy não só era
+      # impreciso: ele INVERTEU o sinal (dizia 162 vs 145; o real, contando
+      # chamadas, é 63 vs 82), então mover a spec "para a parte mais leve" a
+      # mudou para a mais carregada. E o critério era irrelevante desde o
+      # começo — o `AUTH_RATE_LIMIT_LOGIN_IP: "1000"` mais abaixo desliga o
+      # teto no CI, e esta spec faz 6 logins (eram 3 até a revisão que descobriu
+      # que dois casos rodavam DESLOGADOS: `page` é fixture de escopo de teste,
+      # não de worker — cada caso precisa do seu login).
+      #
+      # E o desfecho: a movida não teve efeito NENHUM, porque a ordem é por
+      # caminho (ver o bloco acima). Duas medições erradas em sequência levaram
+      # a uma mudança inócua — que eu ainda por cima creditei por um resultado
+      # que veio de outra coisa. Fica escrito porque o erro instrutivo não é o
+      # proxy ruim: é ter medido de novo, com outro instrumento ruim, em vez de
+      # perguntar se o mecanismo suposto existia.
+      #
+      # (Este comentário mora FORA do bloco `>-` porque dentro dele `#` não é
+      # comentário: é conteúdo, e cada palavra viraria argumento do playwright.
+      # Medido: com o texto dentro, a variável ia de 23 para 205 tokens.)
+      #
+      # `agente-marca-consulta` entrou aqui em 2026-08-27, e a dívida que a segurava era
+      # explícita: ela estava em FORA_DO_CI com o motivo escrito de que eu não conseguira
+      # EXECUTÁ-LA. Foi executada em ambiente completo (banco do baseline, app buildado),
+      # 3 casos / 3 verdes, e o primeiro run achou um defeito real de servidor — a tela não
+      # dizia de quem era o compromisso. Entra na PARTE_2 e não na 1 porque é AQUI que mora
+      # o molde dela, `agente-organiza-operacao`; o comentário antigo dizia PARTE_1 e estava
+      # errado sobre o próprio vizinho.
+      # `relogio-http-cron-externo` entrou na PARTE_1 em 2026-08-28, e a escolha da
+      # parte é o cuidado que ela exige: o tick que ela dispara é GLOBAL por
+      # natureza — ele roda as tarefas de minuto da instalação inteira, não só as
+      # da fixture dela. Um enrollment de outra spec que esteja vencido naquele
+      # instante É processado.
+      #
+      # Por que isso não quebra ninguém, medido e não presumido: as specs que
+      # criam enrollment e depois conferem `current_node_id` são
+      # `followup-journey`, `followup-queue` e `followup-dossie` (PARTE_2, outro
+      # processo, depois) e `followup-ramos` (PARTE_1). A ordem de execução é por
+      # CAMINHO — ver o bloco acima —, e `followup-ramos` < `relogio-http-...`,
+      # então ela já terminou quando o tick roda. Nenhuma spec posterior da
+      # PARTE_1 depende de enrollment parado.
+      #
+      # Se um dia uma spec de follow-up entrar na PARTE_1 com nome depois de
+      # `relogio-`, é aqui que se olha: ou ela vai para a PARTE_2, ou esta vai.
+      SPECS_PARTE_2: >-
+        agente-marca-consulta.spec.ts agenda-marcar-pela-tela.spec.ts agenda-remarcar-e-cancelar.spec.ts
+        agenda-tipos-de-agendamento.spec.ts agenda-grade-interativa.spec.ts
+        agente-novo-e-uso.spec.ts agente-organiza-operacao.spec.ts
+        central-de-avisos-capacidades.spec.ts escalacao-ciclo.spec.ts
+        navegacao.spec.ts olhar-telas-do-epico.spec.ts pipelines-gestao.spec.ts
+        qa-agente-usa-as-maos.spec.ts qa-selo-no-funil-usado.spec.ts
+        qa-telas-descobertas-w4.spec.ts retorno-anti-morte.spec.ts
+        followup-builder.spec.ts followup-queue.spec.ts
+        distribuicao-atendimento.spec.ts followup-journey.spec.ts
+        webhooks.spec.ts
+        capacidades-do-agente.spec.ts
+        escopo-de-funil-do-agente.spec.ts
+        followup-dossie.spec.ts followup-tempo-adaptativo.spec.ts
+        gatilho-de-etapa.spec.ts gatilho-de-caso.spec.ts
+        marca-logo.spec.ts
+        historico-de-captacao.spec.ts
+        automacao-diz-a-verdade.spec.ts
+        inbox-quem-manda.spec.ts
+        acervo-de-conhecimento.spec.ts
+        agenda-kit-visual.spec.ts
+        agenda-conectar-google.spec.ts
+        agenda-painel-cabe-na-tela.spec.ts
+        agenda-ver-na-agenda.spec.ts
+        agenda-escopo-da-organizacao.spec.ts
+        troca-de-organizacao-tem-volta.spec.ts
+        agenda-caminho-ate-os-horarios.spec.ts
+        agenda-google-volta-do-consentimento.spec.ts
+        agenda-google-volta-nao-desloga.spec.ts
+        i18n-espanhol-na-tela.spec.ts
+        inbox-abas-espelham-o-comando.spec.ts
+      # Cada item aqui tem o motivo MEDIDO, não presumido — e o gate cobra que a
+      # lista exista e some com as outras duas.
+      #
+      # `vps-fresh-onboarding` fica fora por DUAS razões, e só a primeira estava
+      # escrita — com o número errado, contradito 8 linhas abaixo neste mesmo
+      # arquivo, que já usava 17 como controle positivo:
+      #
+      #   (1) 17 linhas dependem de WAHA/Resend/Nuvemshop/Redis
+      #       (`grep -ciE "waha|resend|nuvemshop|redis"` → 17 linhas, 22 ocorrências).
+      #
+      #   (2) `orgRow()` (`:41-43`) faz `.limit(1).single()` em `organizations` —
+      #       pressupõe banco de UMA organização só. O banco do CI é compartilhado
+      #       entre as duas partes do job, e `signup-journey.spec.ts:32` cria uma
+      #       segunda org sem cleanup: quando a parte 2 começa há ≥2, e o `.single()`
+      #       falha. Esta razão NÃO se resolve com variável de ambiente — é o desenho
+      #       do rig, e é por isso que "basta dar as credenciais" não destrava.
+      #
+      # Continua sendo a P0 da doutrina de QA Visual: `e2e` verde NÃO prova a
+      # jornada de instalação fresca, que é o produto que se vende.
+      #
+# As CINCO specs da missão "Follow-up Vivo" (`followup-linguagem`,
+      # `followup-ramos`, `followup-dossie`, `followup-tempo-adaptativo`,
+      # `gatilho-de-etapa`) entraram nas listas de execução, e não aqui, porque a
+      # medição não dá motivo para excluí-las: grep de waha/resend/nuvemshop/redis
+      # devolve **0 em todas as cinco** (controle positivo: `vps-fresh-onboarding`
+      # devolve 17). Usam o endpoint de cron, como a `followup-journey` que já roda.
+      #
+      # ⚠️ O QUE NÃO ESTÁ MEDIDO: elas passam LOCALMENTE, e verde local não é verde
+      # de CI. Nenhuma delas rodou num job ainda — foram escritas nesta missão e
+      # ficaram fora de todas as listas, isto é, existiam e nenhum job as invocava.
+      # A primeira execução do `e2e` neste PR é que decide; se alguma reprovar por
+      # ambiente, o lugar dela é aqui embaixo COM o motivo medido, nunca uma
+      # exclusão preventiva "por garantia" — que é exatamente a dívida entrando
+      # pela porta de serviço que este bloco existe para barrar.
+      #
+      # `prova-painel-provedores` esteve aqui e SAIU: em 2026-08-08 o caso F3 exigia
+      # mais de 50 modelos da OpenRouter e o catálogo chegava ao CI com 2 linhas — a
+      # spec media a sorte do ambiente. `scripts/seed-e2e-catalogo-openrouter.ts`
+      # (main, 2026-08-09) semeia o catálogo no job, então a condição que a excluía
+      # deixou de existir e ela voltou para a lista de execução.
+      #
+      # `inbox-tempo-real` entrou aqui em 2026-08-26, no dia seguinte ao merge, e o
+      # motivo é medido nos dois eixos que importam — não é "está flaky, tira".
+      #
+      #  (a) ELE NÃO DISCRIMINA O CONSERTO QUE DIZ GUARDAR. Bancada local fiel a
+      #      este job (Supabase local pg17, `baseline.sql`, Realtime reiniciado
+      #      depois do baseline, `next build` de produção, os mesmos seeds),
+      #      revertendo SÓ `lib/supabase/browser.ts` para a versão anterior ao
+      #      #327 — e conferindo no bundle que o conserto saiu
+      #      (`grep -rc realtime-token .next/static` → 0, controle positivo
+      #      `sb-deskcomm-auth` → 1):
+      #
+      #          com o conserto  → 1 passed
+      #          sem o conserto  → 1 passed
+      #
+      #      Causa provável: `useMessagesRealtime` liga `refetchOnWindowFocus:
+      #      true` e o `execFileSync` que injeta a mensagem devolve o foco à
+      #      janela. Dois caminhos, mesma saída. Quem discrimina de verdade é
+      #      `tests/unit/realtime-token-do-socket.test.ts`, no `verify`.
+      #
+      #  (b) ELE REPROVA PR ALHEIO POR SORTE. Desde o conserto do locator:
+      #      #327 `dd58ec7c` pass · #343 `b508208b` pass · #344 `4e5acb21` FAIL ·
+      #      #344 rerun do MESMO sha FAIL. O #344 não toca uma linha de inbox,
+      #      realtime ou socket.
+      #
+      #      Um gate que reprova por moeda é pior que gate nenhum: ele treina o
+      #      time a reexecutar em vez de olhar, e foi assim que a degradação
+      #      silenciosa passou despercebida da primeira vez.
+      #
+      #      A spec CONTINUA no repositório e continua sendo a cerca de ponta a
+      #      ponta contra o sintoma relatado — roda local. Volta para a lista de
+      #      execução quando a issue #347 entregar entrega determinística (o
+      #      caminho provável é desligar o `refetchOnWindowFocus` durante a
+      #      asserção, para sobrar um caminho só).
+      # ✅ `agenda-marcar-pela-tela` SAIU DAQUI — e o registro é o motivo.
+      #
+      # Ela nasceu `skip` pela DECISÃO 21.3: a frente 1 é API e não tem pixel
+      # próprio, então em vez de CITAR num relatório qual spec vai prová-la em
+      # tela, a spec é CRIADA com a condição de saída no cabeçalho.
+      #
+      # ⚠️ E ESSA CONDIÇÃO VENCEU SEM NINGUÉM VOLTAR PARA CONFERIR. Declarar a
+      # condição foi a coisa certa; o que faltou é que ninguém relê condição de
+      # saída. Medido quando alguém foi olhar:
+      #
+      #     grep -n "^export async function" app/api/v1/agenda/agendamentos/route.ts
+      #     # GET:95  POST:145  PATCH:149  DELETE:153
+      #
+      # Escrita e executada, ela achou CINCO defeitos que nenhuma leitura de
+      # código tinha achado — entre eles a tela dizendo "Marcado ✓" sem criar
+      # linha nenhuma, e um laço de requisições no painel de marcação.
+      #
+      # Entra na PARTE_2 ao lado de `agente-marca-consulta` porque as duas usam
+      # `seed-e2e-agenda.ts` — e cada uma o chama por si, para nenhuma depender
+      # da ordem em que a outra rodou.
+      # para dirigir, e a condição que a exclui deixa de existir. Enquanto isso,
+      # rodá-la no CI custaria um job para exercitar um `skip`.
+      #
+      # `agenda-conectar-google` entra pela MESMA 21.3 e pela frente 3 (Google
+      # Calendar BYO), que também não tem pixel: o botão "Conectar Google" e a
+      # faixa de estado moram na tela da Agenda, da frente 2.
+      #
+      # São DUAS condições de saída, e a primeira depende só de tela:
+      #
+      #  (a) o caso SEM CHAVE sai daqui assim que a tela consumir
+      #      `googleEstaConfigurado()` — ele não precisa de Google nenhum, porque
+      #      o que prova é a instalação SEM `GOOGLE_CALENDAR_CLIENT_ID`, que é o
+      #      estado de 100% dos deploys novos (DECISÃO 3.1, envs opcionais). É o
+      #      caso que vem PRIMEIRO no arquivo de propósito: spec que só cobre o
+      #      caminho feliz deixa sem prova justamente a primeira tela que todo
+      #      self-hoster encontra;
+      #
+      #  (b) o caso COM CHAVE precisa, além da tela, de uma conta Google de teste
+      #      com consentimento pré-aprovado. Sem ela o job pararia num
+      #      `accounts.google.com` esperando login humano — e é por isto que ela
+      #      fica FORA do CI em vez de ficar sem existir.
+      FORA_DO_CI: >-
+        vps-fresh-onboarding.spec.ts
+        inbox-tempo-real.spec.ts
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - uses: supabase/setup-cli@v3
+        with:
+          version: latest
+
+      # Sobe Postgres + Auth (GoTrue) + PostgREST + Storage. Auth de verdade é
+      # requisito: os specs de login exercitam o GoTrue, não um mock.
+      #
+      # A pasta de migrations sai do caminho ANTES do start: a cadeia não sobe
+      # em banco novo (quebra na 0010, `alter table public.contacts` sobre uma
+      # tabela que ainda não existe) — está no CLAUDE.md e foi confirmado neste
+      # CI. O que o self-hoster aplica é o `baseline.sql`, então é ele que o
+      # e2e aplica: o banco do teste fica igual ao de quem instalou o produto.
+      - name: Subir Supabase local (sem a cadeia de migrations)
+        run: |
+          mv supabase/migrations /tmp/migrations-off
+          mkdir -p supabase/migrations
+          supabase start
+
+      # O baseline é um dump `--schema-only`: ele USA os tipos das extensões
+      # (public.vector, citext, gin_trgm_ops) mas não as cria. O stack local do
+      # Supabase traz os binários e não as habilita — mesmo prelúdio que o
+      # scripts/test-db.sh faz para o Postgres cru, só a parte de extensões
+      # (roles e schema auth já vêm prontos aqui).
+      - name: Habilitar extensões exigidas pelo baseline
+        run: |
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -q <<'SQL'
+          create schema if not exists extensions;
+          create extension if not exists "uuid-ossp" with schema extensions;
+          create extension if not exists pgcrypto with schema extensions;
+          create extension if not exists vector with schema public;
+          create extension if not exists citext with schema public;
+          create extension if not exists pg_trgm with schema public;
+          SQL
+
+      - name: Aplicar o baseline.sql (o mesmo que o install.sh do kit aplica)
+        run: |
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -v ON_ERROR_STOP=1 -q -f supabase/baseline.sql
+
+      # ⚠️ O REALTIME PRECISA REINICIAR DEPOIS DO BASELINE — senão ele assina e
+      # não entrega, em silêncio.
+      #
+      # A ordem acima é `supabase start` (que sobe o Realtime) e SÓ DEPOIS o
+      # baseline, que é quem adiciona `messages`, `conversations`, `crm_leads` e
+      # as demais à publication `supabase_realtime`. O Realtime já subiu com a
+      # publication sem essas tabelas e não as reconhece depois.
+      #
+      # Medido no PR #327, com o defeito atravessando três rodadas: o script de
+      # apoio confirmou a gravação (`[e2e-chega-mensagem] entregue em 6f5fd1f2…`)
+      # e o snapshot da página no mesmo instante mostrava "Nenhuma mensagem nesta
+      # conversa." — gravado no banco, nunca entregue à tela. Canal anônimo e
+      # canal sem publication falham do MESMO jeito: respondem SUBSCRIBED e
+      # calam, que é a razão de isto ter custado três rodadas de 15 minutos.
+      #
+      # Na VPS o problema não existe: lá o `install.sh` aplica o baseline e só
+      # então o compose sobe os serviços. Reiniciar aqui é o que faz o ambiente
+      # do teste refletir o de quem instalou.
+      - name: Reiniciar o Realtime (a publication nasceu no passo anterior)
+        run: |
+          IDS=$(docker ps -q --filter name=supabase_realtime)
+          if [ -z "$IDS" ]; then
+            echo "::error::Nenhum container supabase_realtime — o stack não subiu como esperado."
+            exit 1
+          fi
+          docker restart $IDS
+          # Espera ficar saudável: seguir sem isso devolve o mesmo silêncio que
+          # este passo existe para eliminar, só que mais tarde e sem explicação.
+          for i in $(seq 1 30); do
+            estado=$(docker inspect -f '{{.State.Health.Status}}' $IDS 2>/dev/null || echo desconhecido)
+            [ "$estado" = "healthy" ] && { echo "realtime saudável em ~$((i*2))s"; break; }
+            sleep 2
+          done
+          docker inspect -f '{{.State.Health.Status}}' $IDS
+
+      - name: Exportar credenciais do stack local
+        run: |
+          supabase status -o env > /tmp/sb.env
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$(grep '^API_URL=' /tmp/sb.env | cut -d'"' -f2)"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$(grep '^ANON_KEY=' /tmp/sb.env | cut -d'"' -f2)"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$(grep '^SERVICE_ROLE_KEY=' /tmp/sb.env | cut -d'"' -f2)"
+          } >> "$GITHUB_ENV"
+
+      # O `.env.e2e` é o ambiente da suíte, e ele NASCE aqui — não é opcional.
+      #
+      # `playwright.config.ts` passou a exigi-lo e a falhar alto quando falta,
+      # de propósito: sem ele o `next start` carrega o `.env.local`, que num
+      # checkout de trabalho aponta para PRODUÇÃO. O modo de falha que isso
+      # substitui é a suíte escrever organizações e usuários de teste no banco
+      # real, passando verde.
+      #
+      # No CI o `.env.local` aponta para o Supabase local, então o risco não é o
+      # mesmo — mas o contrato é único, e um workflow que contorna o gate seria
+      # o começo de ele não valer para ninguém.
+      - name: Gerar o .env.e2e (ambiente da suíte)
+        run: pnpm e2e:env
+
+      # E publica o arquivo no ambiente do JOB, para que servidor e testes leiam
+      # literalmente a mesma fonte.
+      #
+      # Sem isto havia duas: o `.env.e2e` (que o playwright.config injeta no
+      # `next start`) e um bloco `env:` copiado à mão em cada passo de teste. As
+      # duas divergiram — `INTERNAL_SECRET` valia `e2e-placeholder…` no servidor
+      # e `ci-placeholder…` no processo de teste. Sintoma medido: 401 em toda
+      # chamada a rota interna, 8 specs vermelhas (6 de system-update no
+      # heartbeat, o drain do anti-SSRF, e o invite-lifecycle).
+      #
+      # Medido no Playwright 1.5x: `webServer.env` MESCLA com o ambiente herdado
+      # (uma var só do shell chega ao servidor) e VENCE nas colisões. Ou seja,
+      # copiar valores à mão nunca ia empatar com o arquivo — só uma fonte
+      # empata.
+      #
+      # De brinde, o processo de teste passa a ver as chaves de CIFRA de verdade
+      # (32 bytes, geradas pelo script) em vez do rótulo de 21 caracteres que o
+      # bloco `env:` fixava e que o app recusa.
+      - name: Publicar o .env.e2e no ambiente do job
+        run: grep -vE '^[[:space:]]*(#|$)' .env.e2e >> "$GITHUB_ENV"
+
+      # `pnpm e2e:build`, não `pnpm build`: as três `NEXT_PUBLIC_*` são embutidas
+      # no BUNDLE durante o build. Buildar com um env e trocar só no `next start`
+      # deixaria a URL errada dentro do JavaScript que roda no browser — servidor
+      # falando com um banco e cliente com outro, no mesmo teste.
+      - name: Build de produção (com o ambiente do E2E)
+        run: pnpm e2e:build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+          # `off`, NÃO vazio. Vazio seleciona o Sentry DA COMUNIDADE — está
+          # escrito em lib/sentry/dsn.ts:8-10, e é o default de propósito num
+          # produto self-host. Só "off" desliga.
+          #
+          # Sem isto, o SDK do browser tuneliza por /monitoring (next.config.ts:71)
+          # para o Sentry real do projeto, que devolve 429 por cota. Os 429 caem
+          # no console, e `olhar-telas-do-epico` — a ÚNICA spec que afirma "não
+          # cospe erro no console" — reprova nas 7 telas de uma vez.
+          # Medido em 2026-08-10 capturando a URL: /monitoring?o=4509908078559232,
+          # que é o org id do DEFAULT_SENTRY_DSN (lib/sentry/dsn.ts:17).
+          SENTRY_DSN: "off"
+
+      - name: Instalar o browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      # `.env.local` é CÓPIA do `.env.e2e`, não uma terceira redação dele.
+      #
+      # O arquivo precisa existir porque alguns seeds leem `.env.local` do disco,
+      # não de `process.env`. Ele era montado à mão aqui, com os valores
+      # redigitados — e foi a terceira fonte do mesmo `INTERNAL_SECRET`, com o
+      # terceiro valor. Copiar não pode divergir; redigitar já divergiu.
+      #
+      # No CI as duas apontam para o mesmo stack local, então a cópia não
+      # reintroduz o risco que o `.env.e2e` existe para evitar (o `.env.local` de
+      # um checkout de trabalho apontar para produção).
+      #
+      # O seed cria 1 org + 4 usuários com os 4 papéis e um TOTP verified de
+      # secret conhecido no admin — sem ele, todo spec que loga fica de fora, que
+      # era a maior parte da suíte.
+      - name: Semear credenciais de teste
+        run: |
+          cp .env.e2e .env.local
+          pnpm exec tsx scripts/seed-e2e-credentials.ts
+
+      # `SUPABASE_DB_URL` no `.env.local` (e não só no `env:` do passo de teste):
+      # `seed-e2e-escalacao.ts` abre um `pg.Pool` direto, e o `.env.local` é a
+      # única fonte que ele lê. Sem a linha, o `pg` cai no default 5432 e morre
+      # com ECONNREFUSED — o stack local do Supabase publica o Postgres na 54322.
+      # Medido: foi exatamente assim que a primeira execução deste passo falhou.
+      #
+      # A maioria das specs roda o próprio seed num `beforeAll`. Estas TRÊS não
+      # — ou o cabeçalho manda rodar à mão, ou a fixture é de outra spec.
+      #
+      # `seed-e2e-followup-agent` (credencial de IA + sessão de canal) é o caso
+      # sutil: `followup-builder` o roda no próprio `beforeAll`, mas
+      # `agente-novo-e-uso` PRECISA das mesmas fixtures e vem ANTES na ordem
+      # alfabética — em banco fresco os comboboxes de credencial e canal abrem
+      # com a opção desabilitada e o clique estoura por timeout. Medido: o
+      # ensaio local passou porque o banco tinha as fixtures de uma rodada
+      # anterior; o CI, fresco, reprovou. Rodar aqui torna a precondição
+      # explícita em vez de depender da ordem dos arquivos.
+      #
+      # `--env-file` só na segunda, e a diferença não é capricho: o seed de
+      # capacidades importa `lib/env.ts` (via lib/ai/embed.ts), que lê
+      # `process.env`; o de escalação parseia o `.env.local` por conta própria.
+      # Sem a flag o de capacidades morre na validação Zod das 3 vars do Supabase.
+      - name: Semear as fixtures que as specs não semeiam sozinhas
+        run: |
+          pnpm exec tsx scripts/seed-e2e-escalacao.ts
+          pnpm exec tsx --env-file=.env.local scripts/seed-e2e-capacidades-ausentes.ts
+          pnpm exec tsx scripts/seed-e2e-followup-agent.ts
+          # O catálogo da OpenRouter não existe em banco fresco (o baseline
+          # semeia só anthropic/openai/google; os demais vêm do cron diário, que
+          # busca na internet). Sem esta linha, `prova-painel-provedores` mede a
+          # sorte do ambiente em vez da tela.
+          pnpm exec tsx scripts/seed-e2e-catalogo-openrouter.ts
+
+      # O que ficou DE FORA (e por quê) é declarado no passo de summary —
+      # cobertura parcial silenciosa se lê como cobertura total.
+      #
+      # `next start` roda com NODE_ENV=production, e aí toda var marcada
+      # `required()` no lib/env.ts vira obrigatória, inclusive as de serviço que
+      # estes specs nem tocam. Os valores abaixo são PLACEHOLDERS FALSOS, só
+      # para o boot passar da validação Zod — nenhum segredo real entra aqui.
+      # DUAS INVOCAÇÕES, e não uma — o motivo é medido, não estético.
+      #
+      # `lib/auth/rate-limit.ts` limita login a 60 por IP a cada 300s. No CI todo
+      # spec loga do mesmo 127.0.0.1, e ao subir a suíte de 15 para 29 specs o
+      # pico passou a ser 69–73 tentativas na janela: a suíte estourava o próprio
+      # teto do produto. O sintoma não é honesto — o login simplesmente não
+      # redireciona, e a spec sorteada pelo momento da saturação é a que falha.
+      # Foi assim que `risk-radar` caiu na main e `rbac-roles` num PR, sem
+      # nenhuma das duas ter mudado.
+      #
+      # Sem Upstash configurado, o limitador cai para memória DO PROCESSO (o log
+      # diz: "redis incr failed; falling back to in-memory"), e o
+      # `reuseExistingServer: false` do playwright.config.ts faz cada invocação
+      # subir o SEU `next start`. Duas invocações = dois processos = dois
+      # contadores, e o pico por processo volta para ~40.
+      #
+      # A alternativa seria afrouxar o teto por env — mexer num controle de
+      # segurança para acomodar o teste, que é a troca errada.
+      #
+      # `--workers=1` não é preciosismo: os specs compartilham UMA conta admin
+      # com MFA, e código TOTP é de uso único por janela no GoTrue. Com dois
+      # workers, dois specs gerando o mesmo código no mesmo intervalo de 30s
+      # fazem o segundo ser recusado como replay. Foi o que derrubava a
+      # `reset-password-mfa` (issue #80): ela passa sozinha e falha em paralelo.
+      - name: E2E — parte ${{ matrix.parte }} de 2
+        run: |
+          set -euo pipefail
+          # A lista sai da matrix, e as duas variáveis continuam existindo no
+          # `env:` do job porque é DELAS que `e2e-cobertura-completa.test.ts` lê
+          # a cobertura. Ler por indireção aqui e não duplicar a lista mantém
+          # UMA fonte por parte.
+          if [ "${{ matrix.parte }}" = "1" ]; then LISTA="$SPECS_PARTE_1"; else LISTA="$SPECS_PARTE_2"; fi
+          # Falha alto se a variável vier vazia: sem isto, um typo no nome faria
+          # o playwright rodar a suíte INTEIRA (ou nenhuma) e o job ficaria
+          # verde medindo outra coisa.
+          [ -n "$LISTA" ] || { echo "::error::lista da parte ${{ matrix.parte }} vazia"; exit 1; }
+          pnpm exec playwright test --workers=1 $LISTA
+        env:
+          # Só o que NÃO vem do `.env.e2e`: isto é ajuste de CI, não config do
+          # produto. CI = 1 IP para todos os specs, e o teto de produção
+          # (60/5min) é irreal aqui. O teto por CONTA (5 falhas) NÃO muda — é
+          # ele que barra brute force.
+          AUTH_RATE_LIMIT_LOGIN_IP: "1000"
+          # ver o comentário do passo de build: vazio NÃO desliga.
+          SENTRY_DSN: "off"
+
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report-parte-${{ matrix.parte }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  # O NOME DESTE JOB É O CHECK OBRIGATÓRIO, e é por isso que ele existe.
+  #
+  # A branch protection da `main` exige um check chamado exatamente `e2e`
+  # (medido: verify, build-and-size, invariants, e2e, imagens-ok). Jobs de
+  # matrix se chamam `e2e-parte (1)` e `e2e-parte (2)` — se o job das partes
+  # tivesse ficado com o nome `e2e`, a proteção passaria a esperar para sempre
+  # um check que nenhum run produz, e NENHUM PR mergearia. Este agregador é o
+  # mesmo padrão do `imagens-ok` em `publish-image.yml`.
+  e2e:
+    if: always()
+    needs: [e2e-parte]
+    runs-on: ubuntu-latest
+    # Nenhuma permissão: este job só lê o resultado de `needs` e escreve o
+    # summary. Sem o bloco, o token herdaria o default do REPOSITÓRIO, que vive
+    # fora do repo e muda num clique.
+    permissions: {}
+    steps:
+      - name: Falhar se qualquer parte não passou
+        run: |
+          echo "e2e-parte: ${{ needs.e2e-parte.result }}"
+          # `success` é o único desfecho aceito. `skipped` também reprova, de
+          # propósito: parte pulada não mediu nada, e ler isso como aprovação é
+          # o modo de falha que o `imagens-ok` documenta.
+          [ "${{ needs.e2e-parte.result }}" = "success" ]
+
+      - uses: actions/checkout@v7
+        if: always()
+
+      - name: Declarar o que este job ainda NÃO cobre
+        if: always()
+        run: |
+          set -euo pipefail
+          # CONTA, não afirma. A versão anterior deste passo era prosa digitada à
+          # mão e dizia "32 de 33" com 39 arquivos no disco — a única coisa que
+          # existia para declarar a lacuna estava, ela mesma, desatualizada.
+          #
+          # As listas saem do PRÓPRIO workflow, com recorte por bloco. Contar com
+          # um `grep` no arquivo inteiro daria número MAIOR: os nomes aparecem
+          # também em comentários, e foi assim que a contagem antiga mentiu.
+          #
+          # O `[A-Z_0-9]` inclui DÍGITO de propósito: sem ele o range de
+          # `SPECS_PARTE_1` não parava em `SPECS_PARTE_2` (que tem `2` no nome) e
+          # seguia até `FORA_DO_CI`, devolvendo a união das duas como se fosse a
+          # parte 1. Medido antes do conserto: 67 em vez de 29.
+          bloco() { sed -n "/^      $1: >-/,/^      [A-Z_0-9]*:/p" .github/workflows/e2e.yml \
+                    | grep -oE "[a-z0-9-]+\.spec\.ts" | sort -u; }
+          NO_DISCO=$(ls tests/e2e/*.spec.ts | wc -l | tr -d " ")
+          RODOU=$( { bloco SPECS_PARTE_1; bloco SPECS_PARTE_2; } | sort -u | wc -l | tr -d " ")
+          FORA_LISTA=$(bloco FORA_DO_CI)
+          FORA=$(echo "$FORA_LISTA" | grep -c . || true)
+          # Falha alto se o recorte parou de casar: listas vazias fariam este
+          # passo anunciar "0 de N" como se fosse notícia, em vez de erro.
+          [ "$RODOU" -gt 10 ] || { echo "::error::o recorte das listas do workflow parou de casar"; exit 1; }
+          {
+            echo "## E2E — cobertura deste job"
+            echo ""
+            echo "**Rodou: ${RODOU} de ${NO_DISCO} specs**, em duas partes paralelas."
+            echo ""
+            echo "**Não rodou (${FORA}):**"
+            for s in $FORA_LISTA; do echo "- \`${s}\` — precisa de WAHA + Redis + Resend + Nuvemshop (P0 da doutrina de QA Visual)"; done
+            echo ""
+            echo "A soma é conferida mecanicamente por \`tests/unit/e2e-cobertura-completa.test.ts\`:"
+            echo "spec no disco que não esteja em nenhuma das três listas reprova o build."
+          } >> "$GITHUB_STEP_SUMMARY"

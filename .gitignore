@@ -1,7 +1,116 @@
+# Dependencies
+node_modules/
+# Sem a barra tambem: `node_modules/` casa so com diretorio, e um SYMLINK
+# chamado node_modules (worktree apontando para a instalacao principal) passa
+# batido e vai parar no commit. Aconteceu no PR #83.
 node_modules
-.next
-.env
-.env.local
+.pnp
+.pnp.js
+
+# Build artifacts
+.next/
+out/
+dist/
+build/
+.turbo/
+.vercel/
+
+# Env — ignora todo .env*, exceto os templates de exemplo
+.env*
+!.env.example
+!.env.hostgator.example
+
+# Testing & coverage
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+e2e-artifacts/
+
+# IDE / OS
 .DS_Store
-dist
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.recommended.json
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Supabase local
+supabase/.temp/
+supabase/.branches/
+
+# Epic executor (skill artifacts)
+.epic-executor/
+
+# Claude Code harness artifacts (scheduled tasks lock, etc)
+# gov-loop: agents/ e commands/ são maquinaria versionada do loop e PRECISAM
+# viajar com o repo (merge de gov/setup → main); o resto de .claude/ segue local.
+# skills/: mesma razão — a doutrina (sistema-vivo) é maquinaria de arquitetura.
+# Skill fora do git não alcança quem clona nem o próximo sistema; seria uma
+# "tela sem porta" no vocabulário da própria doutrina que ela carrega.
+.claude/
+!.claude/
+.claude/*
+!.claude/agents/
+!.claude/commands/
+# skills/: allowlist explícita — só as deste repo. Liberar a pasta inteira
+# arrastaria skills locais de outros apps (Lina etc.) para o versionamento.
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/sistema-vivo/
+!.claude/skills/DeskcommCRM/
+
+# Local docker volumes (WAHA)
+.waha-data/
+.epic-executor/
+.playwright-mcp/
+
+# Sentry Config File
+.env.sentry-build-plugin
+inbox-with-real-msgs.png
+.e2e-creds.json
+.e2e-agente-mcp.json
+test-results/
+playwright-report/
+.vercel
+deskcommcrm-setup-kit.zip
+
+# gov-loop — estado operacional fica FORA do git (a resposta do humano na inbox
+# e a linha 'started' do sessions.log não podem sujar o working tree; a guarda de
+# chão limpo do LOOP.md os stasharia). loop/checkpoints/evidence/ NÃO é ignorado:
+# screenshot de checkpoint é evidência versionada.
+loop/inbox.items.md
+loop/sessions.log
+loop/logs/
+loop/locks/
+loop/STOP
+loop/run-session.sh
+.superpowers/
+
+# graphify (análise local de knowledge graph)
+graphify-out/
+package-lock.json
+.e2e-invite.json
+.e2e-owner.json
+.e2e-invite-url.json
+.superpowers/evidence/
+evidence/.sonda-score-residuo.json
+
+# sessão reusada pelas jornadas (contém tokens)
+.auth/
+
+# QA em VPS: guarda segredo TOTP da conta de teste (repo e publico)
+.qa-vps/
+
+# codedb MCP (índice local de código)
 codedb.snapshot
