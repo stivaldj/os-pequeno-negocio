@@ -112,3 +112,17 @@ Decisão: classificador determinístico antes do insert, em vez de modelo; marca
 ## O que este plano não faz
 
 Não usa modelo de linguagem para classificar (fase posterior, como segunda opinião). Não redige `media_derived_text` (transcrição de áudio) — registrado na ADR como risco aberto e como chip. Não cria gate novo na cadeia `before_send` (exigiria contexto montado em `inbound-turn.ts`). Não toca no RAG: ele lê `body`, que já chega redigido.
+
+---
+
+## Desvios registrados na execução (02/09/2026)
+
+- **Cinco ingestores, não quatro.** O plano esqueceu `lib/channels/zernio/ingest.ts` (o adapter do parceiro que é a ponte da ADR-0015). Entrou no teste estático e no preparador; `insertMessage` ganhou o campo explícito `body`.
+- **`redigido.termos` nunca persiste** (achado do revisor): `metadata.redigido` guarda só `{ motivo }`. A varredura do invariante cobre `messages.metadata`, `agent_inbox_items.body` e `api_audit_log.metadata`.
+- **O invariante prova o aviso de IA contra o Postgres efêmero** (`instalarAvisoDeIa` + `loadDisclosureTemplate` + `disclosureGate.evaluate`), cumprindo o terceiro critério da `## Prova` da issue.
+- **`instalarAvisoDeIa` recebe `pg.Pool`**, não `Queryable`: as funções herdadas de template pedem `Pool`.
+- **`Switch` em vez de checkbox** no formulário da Conta: não existe `components/ui/checkbox.tsx`.
+- **`severity: "critical"`** no item do vigia: o CHECK do baseline não aceita `high`.
+- **Fail-closed testado:** falha ao ler `organizations.settings` redige e registra.
+- **`aviso-ao-lead.ts` não mudou:** `clinical_mention` cai em `outro`, que já não diz o motivo.
+- **Sem migration nesta fase.** `agent_inbox_items.kind` já aceita `other` e `ref_kind` não tem CHECK.
