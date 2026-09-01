@@ -518,7 +518,7 @@ Com tudo verde no `/api/v1/health`:
 1. Crie usuários de teste rodando `pnpm tsx scripts/seed-e2e-credentials.ts` — gera `.e2e-creds.json` com admin/manager/agent.
 2. Leia [`README.md`](../README.md) pra fluxo de criar sessão WAHA + escanear QR.
 3. Leia [`CLAUDE.md`](../CLAUDE.md) pra convenções do projeto.
-4. Veja [`tasks/todo.md`](../tasks/todo.md) pra entender o backlog atual.
+4. O backlog vive nas GitHub Issues do repo (`gh issue list`).
 
 Bem-vindo ao DeskcommCRM. 🛠️
 

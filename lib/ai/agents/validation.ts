@@ -77,7 +77,7 @@ const versionShapeSchema = z
      * produto: quem instala pelo kit cola a chave no `.env` e nunca abre a tela
      * de Credenciais — não existe uma única linha em `ai_provider_credentials`.
      * O runtime SEMPRE soube lidar com isso (`chaveDePlataforma` em
-     * `lib/ai/runtime/agent.ts`, mesma precedência de `resolveOrgLlmConfig`); só
+     * `lib/ai/chave-de-plataforma.ts`, mesma precedência de `resolveOrgLlmConfig`); só
      * o editor não deixava salvar. O efeito: o agente do onboarding tinha de
      * nascer `rag_bot`, no editor legado, e as capacidades ficavam invisíveis
      * para o dono.

@@ -58,13 +58,13 @@ describe("atribuição da OpenRouter sai da instalação, nunca do código", () 
   });
 
   it("nenhum dos três caminhos de OpenRouter carrega host ou marca literal", () => {
-    // Os TRÊS call sites de OPENROUTER_ENDPOINT no repositório. O #266 tocava
+    // Os call sites de OPENROUTER_ENDPOINT no repositório (o do motor antigo
+    // saiu no fork). O #266 tocava
     // dois e esquecia o terceiro (a prova de crédito da instalação) — que é a
     // evidência de que os cabeçalhos são atribuição e não requisito: ele
     // funciona hoje sem eles.
     const arquivos = [
       "lib/agent-engine/edge/llm/providers.ts",
-      "lib/ai/runtime/agent.ts",
       "lib/instalacao/prova-de-credito.ts",
     ];
     for (const rel of arquivos) {

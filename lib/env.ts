@@ -175,13 +175,6 @@ const schema = z.object({
   ANTHROPIC_API_KEY: z.string().optional().default(""),
   OPENAI_API_KEY: z.string().optional().default(""),
 
-  // Fusão (Fase 4): DONO ÚNICO dos eventos ai_agent.dispatch_requested.
-  // 'engine' (default) = o worker agent-engine é o único consumidor (o cron
-  // agent-dispatcher vira no-op mecânico); 'native' = o dispatcher EPIC-13
-  // consome (deploy sem worker). NUNCA os dois — dois consumidores = turno
-  // duplicado ou perdido (bug real da fusão).
-  AGENT_DISPATCH_CONSUMER: z.enum(["engine", "native"]).optional().default("engine"),
-
   /**
    * Kill switch do teto de gasto de IA — a alavanca que o operador da VPS puxa
    * às 2h da manhã quando a IA parou e ele não sabe SQL.
@@ -214,16 +207,6 @@ const schema = z.object({
   // `false`, então respeitá-lo faria o conserto não chegar a NENHUMA instalação
   // já existente — que é o item 15 do Definition of Done ("a mudança chega a
   // quem já instalou"). O worker existe para rodar laços; este liga sempre.
-
-  // O endpoint :test devolve um trace fake quando esta flag = 'true'.
-  // Default 'false' desde que a S-13.08 landou: `callInternalRuntime` executa
-  // o `runAgent` real, então quem instala do zero testa o agente de verdade.
-  // Ligue 'true' só para exercitar o render da UI sem gastar token.
-  INTERNAL_AGENT_RUN_STUB: z
-    .enum(["true", "false"])
-    .optional()
-    .default("false")
-    .transform((v) => v === "true"),
 
   // Sentry
   SENTRY_DSN: z.string().optional().default(""),

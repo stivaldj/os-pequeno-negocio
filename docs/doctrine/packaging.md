@@ -7,7 +7,7 @@
 
 Esta é a **lei**. O procedimento operacional de deploy vive em
 [`../runbooks/deploy.md`](../runbooks/deploy.md); as decisões estruturais e o que foi
-recusado, em [`../adr/0001-packaging-e-distribuicao.md`](../adr/0001-packaging-e-distribuicao.md).
+recusado, no ADR 0001 de packaging do upstream DeskcommCRM (removido no fork; ver histórico).
 Ao mudar um invariante aqui, atualize os dois na mesma sessão.
 
 | Se você quer… | Vá para |
@@ -490,7 +490,7 @@ WhatsApp conectado.
 
 > **Correção de 2026-08-14, e ela é sobre a nossa própria régua:** das três parcelas acima,
 > duas são medidas (contêineres e `mem_limit`) e a terceira — os ~150 MB por número — é
-> **herdada** de `docs/research/reference-synthesis.md` (síntese do curso WAHA), nunca medida
+> **herdada** da síntese do curso WAHA (reference-synthesis, doc do upstream removido no fork), nunca medida
 > neste projeto. Ela aparece em sete documentos que se citam entre si, o que a fazia parecer
 > confirmada por repetição. O que **está** medido, na produção do projeto: o contêiner `waha`
 > inteiro em **304,5 MiB com uma sessão pareada**, contra `mem_limit` de 1280 MiB. Isso não

@@ -1594,7 +1594,6 @@ esac
   envq SRH_TOKEN "$SRH_TOKEN"
   envq NODE_ENV "production"
   envq NUVEMSHOP_ENABLED "false"
-  envq INTERNAL_AGENT_RUN_STUB "false"
   envq OWNER_EMAIL "$OWNER_EMAIL"
   envq OWNER_PASSWORD "$OWNER_PASSWORD"
   # As variáveis que você acrescentou à mão, de volta — já no formato em que

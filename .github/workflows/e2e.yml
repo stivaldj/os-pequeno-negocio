@@ -248,7 +248,7 @@ jobs:
         agente-novo-e-uso.spec.ts agente-organiza-operacao.spec.ts
         central-de-avisos-capacidades.spec.ts escalacao-ciclo.spec.ts
         navegacao.spec.ts olhar-telas-do-epico.spec.ts pipelines-gestao.spec.ts
-        qa-agente-usa-as-maos.spec.ts qa-selo-no-funil-usado.spec.ts
+        qa-selo-no-funil-usado.spec.ts
         qa-telas-descobertas-w4.spec.ts retorno-anti-morte.spec.ts
         followup-builder.spec.ts followup-queue.spec.ts
         distribuicao-atendimento.spec.ts followup-journey.spec.ts

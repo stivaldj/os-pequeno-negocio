@@ -433,7 +433,7 @@ describe("crm_resume_ai_attendance", () => {
   });
 
   it("é alcançável por papel — a regra é o ator, não o ranking", () => {
-    // `lib/ai/runtime/agent.ts` grava role 'agent' FIXO e `ensureRole` compara
+    // `mcp-tools.ts` do engine grava role 'agent' FIXO e `ensureRole` compara
     // por ROLE_RANK: exigir 'manager' aqui não seria regra, seria capacidade
     // inalcançável por qualquer agente publicado, com o modelo recebendo
     // "Role 'agent' insufficient" e seguindo a conversa como se nada fosse.

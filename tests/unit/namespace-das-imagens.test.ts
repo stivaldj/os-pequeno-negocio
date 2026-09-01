@@ -219,7 +219,11 @@ describe("catraca: ninguém mais repete o namespace", () => {
     ].map((d) => `--exclude-dir=${d}`);
     // `.bak`/`.orig`/`.rej`/`~` são sobra de editor e de `sed -i.bak`. Sem isto,
     // uma sabotagem local deixa o gate vermelho pelo motivo errado.
-    const excluiArq = ["*.md", "*.bak", "*.orig", "*.rej", "*~"].map((g) => `--exclude=${g}`);
+    // `codedb.snapshot` é o índice local do codedb (gitignored, ~26 MB): copia o
+    // texto do repo inteiro, inclusive os arquivos permitidos, e não executa.
+    const excluiArq = ["*.md", "*.bak", "*.orig", "*.rej", "*~", "codedb.snapshot"].map(
+      (g) => `--exclude=${g}`,
+    );
 
     let saida = "";
     try {

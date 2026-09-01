@@ -14,7 +14,7 @@ import { aiAgentDefaultSchema, type PromptTemplate } from "@/lib/schemas/onboard
 import { capacidadesPadraoDoOnboarding } from "@/lib/ai/agents/capacidades-padrao";
 import { publicarMemoriaDaOrg } from "@/lib/ai/memoria-da-org";
 import { escolherModeloDoProvedor } from "@/lib/ai/agents/escolher-modelo";
-import { chaveDePlataforma } from "@/lib/ai/runtime/agent";
+import { chaveDePlataforma } from "@/lib/ai/chave-de-plataforma";
 import {
   requireOnboardingCtx,
   patchOnboardingState,

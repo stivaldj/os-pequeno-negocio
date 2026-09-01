@@ -24,7 +24,6 @@ describe("loadEnv — vazio é ausente (contrato BYOK do README)", () => {
     const env = loadEnv({ ...REQUIRED, AGENT_MAX_STEPS: "" });
     expect(env.ANTHROPIC_API_KEY).toBeUndefined();
     expect(env.AGENT_MAX_STEPS).toBe(8); // default, não NaN de coerce('')
-    expect(env.AGENT_DISPATCH_CONSUMER).toBe("engine");
   });
 
   it("obrigatória VAZIA = erro claro nomeando a var (fail-fast preservado)", () => {

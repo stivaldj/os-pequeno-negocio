@@ -19,7 +19,9 @@ import type { LeadContext } from "@/lib/agent-engine/edge/crm/get-lead-context";
  *
  * Os payloads abaixo não foram inventados por quem escreveu o teste: são os
  * turnos REAIS de `gpt-5.6-terra` da medição de 2026-08-05, versionados em
- * `evidence/ia-360-w4/medicao-vazamento/turnos/`. Fixture inventada mede a
+ * `tests/fixtures/medicao-vazamento/turnos/` (movidos de `evidence/` quando o
+ * fork removeu aquela pasta — o relatório da medição veio junto). Fixture
+ * inventada mede a
  * imaginação de quem a escreveu — e a imaginação de quem escreve a defesa é
  * justamente a que já falhou, senão o defeito não teria acontecido.
  *
@@ -29,7 +31,7 @@ import type { LeadContext } from "@/lib/agent-engine/edge/crm/get-lead-context";
  */
 const DIR_TURNOS = path.join(
   process.cwd(),
-  "evidence/ia-360-w4/medicao-vazamento/turnos",
+  "tests/fixtures/medicao-vazamento/turnos",
 );
 
 interface TurnoMedido {

@@ -80,10 +80,6 @@ const envSchema = z.object({
   WATCHDOG_REDRIVE_MIN_AGE_MS: z.coerce.number().int().positive().default(30_000),
   WATCHDOG_REDRIVE_BATCH_SIZE: z.coerce.number().int().positive().default(10),
   WATCHDOG_REDRIVE_SPACING_MS: z.coerce.number().int().positive().default(4_000),
-  // Dono ÚNICO dos eventos ai_agent.dispatch_requested (mesma chave do app):
-  // 'engine' (default) = o drain deste worker consome; 'native' = o dispatcher
-  // EPIC-13 consome e o drain daqui NÃO liga. Nunca os dois.
-  AGENT_DISPATCH_CONSUMER: z.enum(['engine', 'native']).default('engine'),
   // Kill switch do teto de gasto de IA. `on` (ausente = on) não liga nada:
   // respeita o que cada organização escolheu. A chave só AFROUXA — 'avisar'
   // rebaixa bloqueio a aviso, 'off' (e as grafias falsas comuns) cala tudo.

@@ -9,8 +9,8 @@
  *
  * O que este teste vigia é o INSUMO: se o texto que vai ao modelo voltar a
  * carregar os termos que ele repete, o defeito volta. Não dá para testar a saída
- * do modelo aqui — ela é medida no QA com IA real
- * (`tests/e2e/qa-agente-usa-as-maos.spec.ts`).
+ * do modelo aqui — ela era medida no QA com IA real pelo ensaio do agente,
+ * que saiu junto com o motor antigo; volta quando o engine tiver dry-run.
  */
 import { describe, expect, it } from "vitest";
 

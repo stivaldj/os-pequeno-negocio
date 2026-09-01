@@ -30,7 +30,7 @@ export type Admin = ReturnType<typeof createAdminClient>;
  * Janela de silêncio automático do bot quando um humano responde direto pelo
  * WhatsApp (fromMe=true, fora do composer/IA do CRM) — ver `handleOutboundFromUserPhone`.
  *
- * Antes disto, `ignore_self` (`lib/ai/dispatcher/triggers.ts`) só ignorava a PRÓPRIA
+ * Antes disto, o `ignore_self` do dispatcher legado (removido no fork) só ignorava a PRÓPRIA
  * mensagem do humano (não disparava turno pra ela), mas não silenciava nada — a
  * PRÓXIMA mensagem do lead fazia o agente rodar normalmente, cego ao que o humano
  * acabou de tratar manualmente. Medido em produção (tenant YADEA): um humano

@@ -6,7 +6,7 @@
  * O DeskcommCRM chama modelo de linguagem em 23 lugares. Até aqui, QUAL modelo
  * cada um usava estava espalhado por três pilhas que não se falavam
  * (`runModelCall` com BYOK por org, `lib/ai/gateway.ts` por variável de
- * ambiente, `lib/ai/runtime/agent.ts` com um terceiro `switch`) e por sete
+ * ambiente, o motor antigo — hoje removido — com um terceiro `switch`) e por sete
  * variáveis de ambiente. Não havia lugar nenhum onde a pergunta "quem usa IA
  * aqui, e com qual chave?" tivesse resposta.
  *
@@ -444,24 +444,6 @@ export const PONTOS_DE_IA: readonly PontoDeIa[] = [
     sintomaDeFalha:
       "O botão de testar não conclui, e você fica sem saber se a configuração está de pé antes de colocar no ar.",
     registraEm: "llm_calls",
-  },
-  {
-    id: "teste_de_agente",
-    rotulo: "Ensaiar o agente antes de publicar",
-    oQueFaz:
-      "Roda o agente contra uma conversa de mentira, para você ver como ele responderia sem falar com cliente de verdade.",
-    papel: "melhorar",
-    exige: { tools: true },
-    emissor: "lib/ai/runtime/agent.ts",
-    fixo: {
-      razao:
-        "Usa o modelo da versão do agente que você está ensaiando — e é exatamente isso que faz o ensaio valer. " +
-        "Se este ponto tivesse modelo próprio, você testaria uma configuração diferente da que vai publicar, e o " +
-        "ensaio deixaria de prever o comportamento real. Para trocar o modelo, troque na versão do agente.",
-    },
-    sintomaDeFalha:
-      "O ensaio do agente não devolve resposta, e você precisa publicar às cegas para descobrir se ficou bom.",
-    registraEm: "ai_agent_runs",
   },
   {
     id: "contagem_de_tokens",

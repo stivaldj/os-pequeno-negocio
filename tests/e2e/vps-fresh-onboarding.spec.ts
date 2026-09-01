@@ -191,11 +191,10 @@ test.describe("J1 — onboarding do dono numa instalação fresca", () => {
 
     await page.locator("#name").fill("Tomik QA");
     await page.getByRole("button", { name: /criar e continuar/i }).click();
-    // O wizard ganhou um passo entre treinar e chamar o time: ver o
-    // funcionário atender. Terminar sem nunca tê-lo visto fazer nada era como
-    // o onboarding entregava a pessoa num inbox vazio.
-    await page.waitForURL(/\/onboarding\/testar/, { timeout: 20_000 });
-    await snap(page, "j1.7-testar");
+    // Depois de treinar vem o quadro de clientes (o passo de ensaio saiu do
+    // wizard no fork, junto com o motor antigo).
+    await page.waitForURL(/\/onboarding\/funil/, { timeout: 20_000 });
+    await snap(page, "j1.7-funil");
 
     const { data: agents } = await svc
       .from("ai_agents")
@@ -232,28 +231,6 @@ test.describe("J1 — onboarding do dono numa instalação fresca", () => {
       .limit(1)
       .maybeSingle();
     expect(versoes?.[0]?.model).toBe(curado?.model_id);
-  });
-
-  test("J1.24 ver ele atender: o wizard não termina sem mostrar o funcionário", async ({ page }) => {
-    // O passo que faltava. O onboarding entregava a pessoa num inbox vazio
-    // ("Sem conversas por aqui") logo depois de ela montar um funcionário que
-    // nunca tinha visto fazer nada — e um erro de chave ou de saldo só
-    // apareceria quando um cliente de verdade escrevesse.
-    await login(page);
-    await page.waitForURL(/\/onboarding\/testar/, { timeout: 20_000 });
-    await expect(page.getByRole("heading", { name: /veja ele atender/i })).toBeVisible();
-
-    // O agente desta jornada nasceu SEM canal (o WhatsApp foi pulado em J1.6),
-    // então ficou rascunho — e rascunho não responde. A tela tem de dizer isso
-    // em vez de oferecer um ensaio que nunca funcionaria.
-    await expect(page.getByText(/rascunho/i)).toBeVisible();
-    await snap(page, "j1.24-testar-rascunho");
-
-    await page.getByRole("button", { name: /^continuar$/i }).click();
-    await page.waitForURL(/\/onboarding\/invite-team/, { timeout: 20_000 });
-
-    const org = await orgRow();
-    expect((org.onboarding_state as { teste?: unknown })?.teste).toBeTruthy();
   });
 
   test("J1.8 convite SEM Resend: a UI não pode mentir que enviou email", async ({ page }) => {

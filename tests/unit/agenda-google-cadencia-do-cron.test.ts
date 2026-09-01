@@ -48,7 +48,7 @@ describe("a cadência das rodadas da agenda do Google", () => {
     // Sem isto, um leitor quebrado devolveria `null` para tudo e os casos
     // abaixo passariam por vacuidade — que é o modo de falha que esta sessão
     // já pagou três vezes.
-    expect(intervaloEmMinutos("agent-dispatcher")).toBe(1);
+    expect(intervaloEmMinutos("followup-flow-worker")).toBe(1);
     expect(intervaloEmMinutos("contact-phones")).toBe(30);
   });
 
