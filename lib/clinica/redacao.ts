@@ -16,6 +16,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { logger } from "@/lib/logger";
 import { classificarConteudoClinico, type MotivoClinico } from "./classificar";
+import { configuracaoClinica } from "./config";
 
 export const MARCADOR_CLINICO = "[conteúdo clínico redigido]";
 const PREVIEW_MAX = 120;
@@ -27,11 +28,6 @@ export interface EntradaPreparada {
   redigido: { motivo: MotivoClinico | "configuracao_indisponivel" } | null;
 }
 
-/** Lê `settings.clinica.redacao_clinica === true`. Substituído por `config.ts` na mesclagem da Tarefa 5. */
-export function redacaoLigada(settings: unknown): boolean {
-  const s = settings as { clinica?: { redacao_clinica?: unknown } } | null | undefined;
-  return s?.clinica?.redacao_clinica === true;
-}
 
 async function lerRedacaoDaConta(
   admin: SupabaseClient,
@@ -49,7 +45,7 @@ async function lerRedacaoDaConta(
     });
     return { ok: false };
   }
-  return { ok: true, redacao: redacaoLigada((data as { settings?: unknown } | null)?.settings) };
+  return { ok: true, redacao: configuracaoClinica((data as { settings?: unknown } | null)?.settings).redacao };
 }
 
 function integra(texto: string | null): EntradaPreparada {
