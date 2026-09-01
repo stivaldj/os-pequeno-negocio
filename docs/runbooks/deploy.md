@@ -117,8 +117,8 @@ costuma ser citada como se fosse nossa:
 | `mem_limit` somando 2560m (app 768 + worker 512 + waha 1280) | **medido** | `grep -n 'mem_limit' docker-compose.prod.yml` |
 | ~150 MB por número de WhatsApp | **herdado do upstream WAHA**, nunca medido neste projeto | `docker stats --no-stream` na sua VPS |
 
-O terceiro número vem de `docs/research/reference-synthesis.md` (síntese do curso
-WAHA, 2026-05), não de uma medição nossa — e circula em sete documentos que se
+O terceiro número vem da síntese do curso WAHA (reference-synthesis, doc do
+upstream removido no fork; 2026-05), não de uma medição nossa — e circula em documentos que se
 citam entre si. Uma medição pontual na produção do projeto (2026-08-14, **uma**
 sessão pareada, VPS compartilhada com outras stacks) deu **304,5 MiB no contêiner
 `waha` inteiro**, contra o `mem_limit` de 1280 MiB. Um ponto não decompõe baseline

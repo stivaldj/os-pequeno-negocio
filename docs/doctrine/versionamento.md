@@ -40,7 +40,7 @@ Quem lê o número é o operador, não o autor. A régua tem que ser escrita da 
 | **Precisa agir**: editar `.env`, rodar comando, ou algo que existia sumiu / mudou de forma | **major** — `1.7.0` → `2.0.0` |
 
 A linha de baixo não é escolha nossa: ela já é lei em `CLAUDE.md`, na doutrina de packaging
-e no [ADR 0001](../adr/0001-packaging-e-distribuicao.md) — *bump que exige edição manual não
+e no ADR 0001 de packaging do upstream DeskcommCRM (removido no fork; ver histórico) — *bump que exige edição manual não
 entra; vira issue com plano de migração e vai para uma major*. Esta doutrina apenas estende
 a mesma lógica para baixo, para a faixa onde **todas** as releases do projeto realmente caem.
 

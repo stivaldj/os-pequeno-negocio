@@ -128,9 +128,7 @@ Uma feature que responde "nenhum" a *quem eu alimento* ou *onde apareço na tela
 
 A doutrina só é navegável e monitorável se materializada visualmente. Dois artefatos mantêm o sistema legível:
 
-- **archify** (`docs/architecture/`) — diagramas curados de sistema, turno do agente e flywheel. **Fonte da verdade = os `.json`, e é só neles que se mexe.** Uma peça nova entra no mapa **com ≥2 arestas** antes do merge, e `tests/unit/mapas-de-arquitetura.test.ts` verifica a coerência interna de todos eles.
-
-  > ⚠️ **NÃO "re-renderize com archify".** Esta linha mandava fazer isso e a instrução era falsa: medido com archify 2.11.0, **só `agent-turn.workflow.json` valida**. Os `*.architecture.json` são recusados nos dois modos — os `node.type` que usamos estão fora do enum, vários `col` passam de 5, e os `dot` dos cards também. Quem seguisse a instrução receberia erro de schema e concluiria que estragou algo. Detalhe medido em [`../architecture/README.md`](../architecture/README.md).
+- **archify** — os diagramas curados de sistema, turno do agente e flywheel viviam na pasta de arquitetura do upstream DeskcommCRM, removida no fork (ver histórico do upstream se precisar deles).
 - **graphify** (`graphify-out/`) — grafo determinístico do repo inteiro (nós, comunidades, arestas). Use `graphify query "<pergunta>"` para achar ilhas e orientar antes de ler fontes.
 
 Regra: **mudança de arquitetura não fecha sem o mapa refletir.** O diagrama desatualizado é uma ilha de informação — viola o invariante 3.
