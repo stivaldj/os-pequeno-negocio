@@ -7,3 +7,5 @@ A alternativa era um parceiro que já oferece Coexistência. Recusada como camin
 ## Consequências
 
 A papelada da Meta corre em paralelo ao código desde o início da Fase 2, e é o operador quem a faz. A clínica cadastra cartão no próprio WABA, porque Tech Provider não tem linha de crédito. Nunca se apaga a conta do app: é o único caminho que perde o histórico e bloqueia o Número no app.
+
+**Sobre a doutrina herdada.** `docs/doctrine/restricao-de-canal.md` registra que Embedded Signup não cabe em self-host, porque exigiria cada instalação virar Tech Provider. Esta ADR não a contradiz: o Embedded Signup é opcional por instalação, ligado só quando a instalação declara o app da Meta (`META_APP_ID`, `META_APP_SECRET`, `META_EMBEDDED_SIGNUP_CONFIG_ID`), e o BYO manual continua sendo o caminho padrão. A LAVRA é a instalação que é Tech Provider; quem instala o kit por conta própria segue colando credencial.
