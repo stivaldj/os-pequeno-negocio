@@ -414,8 +414,22 @@ describe("o código morto de orçamento não volta", () => {
     "workers/ai-budget-checker.cron.ts",
     "workers/ai-budget-reset.cron.ts",
     "lib/ai/dispatcher/budget.ts",
+    // O motor antigo inteiro saiu no fork (Fase 1): dois cérebros no repo era
+    // exatamente o que o plano de fusão prometia acabar.
+    "lib/ai/dispatcher/index.ts",
+    "lib/ai/dispatcher/triggers.ts",
+    "lib/ai/runtime/agent.ts",
+    "lib/ai/runtime/finalize.ts",
+    "app/api/internal/agents/run/route.ts",
   ];
-  const SIMBOLOS = ["runBudgetChecker", "runBudgetReset", "checkTenantBudget"];
+  const SIMBOLOS = [
+    "runBudgetChecker",
+    "runBudgetReset",
+    "checkTenantBudget",
+    "dispatchAgents",
+    "runAgent(",
+    "buildModel(",
+  ];
   const RAIZES = ["app", "components", "hooks", "lib", "workers"] as const;
 
   function arquivos(dir: string): string[] {

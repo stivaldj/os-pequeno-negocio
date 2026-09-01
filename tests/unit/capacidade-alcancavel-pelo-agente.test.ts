@@ -9,8 +9,7 @@
  * ferramenta que ele ligou não existe na prática.
  *
  * ⚠️ O PAPEL DO AGENTE PUBLICADO É `agent`, LITERAL E FIXO, nos dois caminhos
- * que montam o contexto MCP de um agente:
- *   - `lib/ai/runtime/agent.ts` — `auth.role = "agent"`, `scopes: [… "role:agent"]`
+ * que monta o contexto MCP de um agente:
  *   - `lib/agent-engine/edge/crm/mcp-tools.ts` — `role: 'agent'`
  * e `lib/ai/runtime/mcp_token.ts` grava `"role:agent"` no token efêmero sem
  * parâmetro para variar. `ensureRole` compara por `ROLE_RANK`, então toda tool
@@ -193,9 +192,5 @@ describe("catálogo de tools — papel exigido e alcance real do agente", () => 
   it("o mint do token efêmero ainda grava o papel que este teste assume", () => {
     const fonte = readFileSync(join(RAIZ, "lib/ai/runtime/mcp_token.ts"), "utf8");
     expect(fonte).toContain(`"role:${PAPEL_DO_AGENTE_PUBLICADO}"`);
-
-    const runtime = readFileSync(join(RAIZ, "lib/ai/runtime/agent.ts"), "utf8");
-    expect(runtime).toContain(`\`agent_run:\${run.id}\``);
-    expect(runtime).toContain(`"role:${PAPEL_DO_AGENTE_PUBLICADO}"`);
   });
 });

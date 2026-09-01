@@ -7,8 +7,8 @@
  * nada ficar vermelho: foi assim que oito premissas mortas chegaram até aqui.
  *
  * Esta spec cobre o que dá para cobrir sem esses serviços — que é quase tudo:
- * o wizard inteiro, do login ao "Começar a usar". Fica de fora só o ensaio com
- * resposta de verdade, que precisa de chave de IA com saldo.
+ * o wizard inteiro, do login ao "Começar a usar". (O passo de ensaio saiu do
+ * wizard no fork, junto com o motor antigo.)
  *
  * ISOLAMENTO: cria a PRÓPRIA organização, com o próprio dono. O seed do CI
  * entrega a organização compartilhada já onboardada, e zerar o estado dela para
@@ -331,7 +331,7 @@ test.describe("o wizard monta um funcionário", () => {
     await login(page);
     await page.waitForURL(/\/onboarding\/funil/, { timeout: 30_000 });
     await page.getByRole("button", { name: /usar este quadro/i }).click();
-    await page.waitForURL(/\/onboarding\/testar/, { timeout: 30_000 });
+    await page.waitForURL(/\/onboarding\/invite-team/, { timeout: 30_000 });
 
     const { data: funil } = await svc
       .from("crm_pipelines")
@@ -416,9 +416,6 @@ test.describe("o wizard monta um funcionário", () => {
     page,
   }) => {
     await login(page);
-    await page.waitForURL(/\/onboarding\/testar/, { timeout: 30_000 });
-    await page.getByRole("button", { name: /^continuar$/i }).click();
-
     await page.waitForURL(/\/onboarding\/invite-team/, { timeout: 30_000 });
     await page.getByRole("button", { name: /pular por enquanto/i }).click();
     await page.waitForURL(/\/onboarding\/done/, { timeout: 30_000 });

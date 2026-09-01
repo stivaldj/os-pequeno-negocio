@@ -1,6 +1,7 @@
 "use client";
 /**
- * Tabs do detalhe de agent. Wave 12 (S-13.12) entrega Test, Runs e History.
+ * Tabs do detalhe de agent. A aba Teste saiu junto com o motor antigo (o
+ * engine ainda não tem dry-run — ver a issue de ensaio no engine).
  */
 import * as React from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,7 +10,6 @@ import { AgentForm, type ChannelSessionLite } from "./AgentForm";
 import type { CoberturaPorFunil } from "./FunisDoAgente";
 import type { MaterialDoAcervo } from "./BasesDoAgente";
 import type { FunilDaResposta } from "@/hooks/pipelines/usePipelines";
-import { TestPanel } from "./TestPanel";
 import { RunsTable } from "./RunsTable";
 import { UsoDasCapacidades } from "./UsoDasCapacidades";
 import { VersionHistory } from "./VersionHistory";
@@ -43,9 +43,8 @@ interface Props {
 export function AgentTabs(props: Props) {
   const t = useT();
   const [tab, setTab] = React.useState<
-    "configuration" | "test" | "capacidades" | "runs" | "history" | "proposals"
+    "configuration" | "capacidades" | "runs" | "history" | "proposals"
   >("configuration");
-  const hasVersion = !!(props.draft || props.published);
 
   return (
     <Tabs
@@ -55,9 +54,6 @@ export function AgentTabs(props: Props) {
     >
       <TabsList>
         <TabsTrigger value="configuration">{t("Configuração")}</TabsTrigger>
-        <TabsTrigger value="test" disabled={!hasVersion}>
-          {t("Teste")}
-        </TabsTrigger>
         <TabsTrigger value="capacidades">{t("Capacidades")}</TabsTrigger>
         <TabsTrigger value="runs">{t("Execuções")}</TabsTrigger>
         <TabsTrigger value="history">{t("Histórico")}</TabsTrigger>
@@ -79,15 +75,6 @@ export function AgentTabs(props: Props) {
           cobertura={props.cobertura}
           materiais={props.materiais}
           routerMembership={props.routerMembership}
-          readOnly={props.readOnly}
-        />
-      </TabsContent>
-
-      <TabsContent value="test" className="m-0">
-        <TestPanel
-          agent={props.agent}
-          draft={props.draft}
-          published={props.published}
           readOnly={props.readOnly}
         />
       </TabsContent>

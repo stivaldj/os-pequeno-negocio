@@ -298,9 +298,6 @@ export const AUDIT_ACTIONS = [
   // lado: `ours` perderia estes oito; `theirs` perderia a derivação.
   "onboarding.quadro_montado",
   "onboarding.quadro_pulado",
-  // O passo de ver o funcionário responder antes de terminar o wizard.
-  "onboarding.agente_testado",
-  "onboarding.agente_teste_pulado",
   "security.mfa_exigida",
   "security.mfa_dispensada",
   "security.mfa_desativada",

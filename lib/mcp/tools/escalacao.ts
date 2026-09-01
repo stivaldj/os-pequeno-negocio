@@ -284,8 +284,8 @@ export const crmResumeAiAttendance: McpToolDefinition<typeof retomarInputShape> 
    * `agent`, e a regra dura mora no handler, NÃO no papel.
    *
    * A tentação era exigir `manager` para impedir o agente de desfazer a própria
-   * passagem. Medido: `lib/ai/runtime/agent.ts` grava `role: "agent"` fixo (3
-   * pontos), `mcp_token.ts` mint a `"role:agent"` sem parâmetro para variar, e
+   * passagem. Medido: `mcp-tools.ts` do engine grava `role: 'agent'` fixo,
+   * `mcp_token.ts` mint a `"role:agent"` sem parâmetro para variar, e
    * `ensureRole` compara por `ROLE_RANK` — então `manager` aqui não seria uma
    * regra, seria uma capacidade INALCANÇÁVEL por qualquer agente publicado,
    * devolvendo `Role 'agent' insufficient` ao modelo. Regra que só funciona por

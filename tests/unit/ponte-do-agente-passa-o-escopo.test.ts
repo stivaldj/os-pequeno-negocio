@@ -27,7 +27,6 @@ const RAIZ = resolve(__dirname, "../..");
 /** Os arquivos de produção que montam as ferramentas de um turno. */
 const CHAMADORES = [
   "lib/agent-engine/edge/crm/mcp-tools.ts",
-  "lib/ai/runtime/agent.ts",
 ];
 
 describe("a consequência de omitir o escopo", () => {

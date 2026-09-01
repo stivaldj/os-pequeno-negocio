@@ -94,10 +94,6 @@ const FORA_DO_SEAM: Record<string, { arquivo: string; marcador: string }> = {
     arquivo: "lib/agent-engine/edge/llm/count-tokens.ts",
     marcador: "count_tokens",
   },
-  teste_de_agente: {
-    arquivo: "lib/ai/runtime/agent.ts",
-    marcador: "buildModel",
-  },
 };
 
 describe("registro de pontos de IA × código", () => {

@@ -41,10 +41,6 @@ describe("passos visíveis", () => {
       // a pessoa acabou de confirmar funcionando, e é o mesmo modelo que vai
       // atender. Pedi-lo antes obrigaria a montá-lo no escuro.
       "funil",
-      // Ver o funcionário atender vem DEPOIS de treiná-lo e ANTES de chamar o
-      // time: é a prova de que ele funciona, e ela precisa acontecer enquanto a
-      // pessoa ainda está no wizard.
-      "testar",
       "invite-team",
     ]);
   });
@@ -80,7 +76,6 @@ describe("próximo passo", () => {
       whatsapp: { status: "WORKING" },
       ai: { agent_id: "a", prompt_template: "p" },
       funil: { pipeline_id: "f", origem: "ia", etapas: 6 },
-      teste: { respondeu: true },
       team: { invites_sent: 0, skipped: true },
     };
     expect(proximoPasso(s, SEM_LOJA)).toBeNull();

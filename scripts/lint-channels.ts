@@ -150,11 +150,9 @@ const KNOWN_DEBT: { reason: string; files: string[] }[] = [
       "correta ('o container converte o áudio no servidor') para escapar de um " +
       "regex PIORA o código — por isso a decisão é registrar, não reescrever.",
     files: [
-      "app/api/v1/ai/agents/[id]/versions/[vid]/test/route.ts",
       "app/api/v1/conversations/[id]/media/route.ts",
       "app/api/v1/webhook-sources/route.ts",
       "app/api/v1/webhooks/in/[token]/route.ts",
-      "app/app/ai/agents/[id]/_components/TestPanel.tsx",
       "components/inbox/media/media-utils.ts",
       "lib/agent-engine/channel-adapter.ts",
       "lib/agent-engine/cron/scheduler.ts",
@@ -166,7 +164,6 @@ const KNOWN_DEBT: { reason: string; files: string[] }[] = [
       "lib/agent-engine/env.ts",
       "lib/agent-engine/health/circuit.ts",
       "lib/agent-engine/obs/metrics.ts",
-      "lib/ai/runtime/finalize.ts",
       "lib/automation/start-conversation.ts",
       "lib/env.ts",
       "lib/followup/reactivity.ts",

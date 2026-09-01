@@ -91,9 +91,9 @@ export const onboardingStateSchema = z.object({
     })
     .optional(),
   /**
-   * O passo de ver o funcionário responder. `visto` é o que importa: ninguém é
-   * obrigado a testar, mas o wizard precisa saber que a tela foi encarada para
-   * não voltar a ela para sempre.
+   * O passo de ver o funcionário responder. Saiu do wizard no fork (o ensaio
+   * rodava pelo motor antigo); o campo fica porque estados já gravados o
+   * carregam, e volta a ser escrito quando o engine tiver dry-run.
    */
   teste: z
     .object({

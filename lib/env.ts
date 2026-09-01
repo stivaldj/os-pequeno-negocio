@@ -208,16 +208,6 @@ const schema = z.object({
   // já existente — que é o item 15 do Definition of Done ("a mudança chega a
   // quem já instalou"). O worker existe para rodar laços; este liga sempre.
 
-  // O endpoint :test devolve um trace fake quando esta flag = 'true'.
-  // Default 'false' desde que a S-13.08 landou: `callInternalRuntime` executa
-  // o `runAgent` real, então quem instala do zero testa o agente de verdade.
-  // Ligue 'true' só para exercitar o render da UI sem gastar token.
-  INTERNAL_AGENT_RUN_STUB: z
-    .enum(["true", "false"])
-    .optional()
-    .default("false")
-    .transform((v) => v === "true"),
-
   // Sentry
   SENTRY_DSN: z.string().optional().default(""),
 
