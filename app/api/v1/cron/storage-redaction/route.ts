@@ -14,13 +14,14 @@ import type { NextRequest } from "next/server";
 import { ok, fail } from "@/lib/api/wrappers";
 import { env } from "@/lib/env";
 import { drainStorageRedactionQueue } from "@/lib/lgpd/storage-redaction-queue";
+import { comExecucaoDeRotina } from "@/lib/rotinas/registrar";
 
 export const dynamic = "force-dynamic";
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
 
-export async function GET(req: NextRequest): Promise<Response> {
+async function handle(req: NextRequest): Promise<Response> {
   const requestId = randomUUID();
 
   const auth = req.headers.get("authorization") ?? "";
@@ -47,3 +48,5 @@ export async function GET(req: NextRequest): Promise<Response> {
 
   return ok(stats, { requestId });
 }
+
+export const GET = comExecucaoDeRotina("storage-redaction", handle);

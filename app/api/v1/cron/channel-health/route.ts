@@ -55,6 +55,7 @@ import { sincronizarSaudeDaConexao } from "@/lib/channels/health";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { comExecucaoDeRotina } from "@/lib/rotinas/registrar";
 
 export const dynamic = "force-dynamic";
 
@@ -153,5 +154,5 @@ async function handle(req: NextRequest): Promise<Response> {
   return ok({ sessoes: sessoes.length, verificadas, ...desfechos }, { requestId });
 }
 
-export const GET = handle;
-export const POST = handle;
+export const GET = comExecucaoDeRotina("channel-health", handle);
+export const POST = GET;

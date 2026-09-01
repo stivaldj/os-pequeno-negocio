@@ -40,6 +40,7 @@ import { logger } from "@/lib/logger";
 import { venceReativacoes } from "@/lib/leads/reactivation";
 import { observaTravessias } from "@/lib/leads/risk-worker";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { comExecucaoDeRotina } from "@/lib/rotinas/registrar";
 
 export const dynamic = "force-dynamic";
 
@@ -126,10 +127,5 @@ async function handle(req: NextRequest): Promise<Response> {
   );
 }
 
-export async function GET(req: NextRequest): Promise<Response> {
-  return handle(req);
-}
-
-export async function POST(req: NextRequest): Promise<Response> {
-  return handle(req);
-}
+export const GET = comExecucaoDeRotina("risk-watcher", handle);
+export const POST = GET;

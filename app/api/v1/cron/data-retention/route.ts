@@ -64,6 +64,7 @@ import {
   interpretarRetencao,
 } from "@/lib/retencao/politica";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { comExecucaoDeRotina } from "@/lib/rotinas/registrar";
 
 export const dynamic = "force-dynamic";
 
@@ -278,10 +279,5 @@ async function handle(req: NextRequest): Promise<Response> {
   return ok(resultado, { requestId });
 }
 
-export async function GET(req: NextRequest): Promise<Response> {
-  return handle(req);
-}
-
-export async function POST(req: NextRequest): Promise<Response> {
-  return handle(req);
-}
+export const GET = comExecucaoDeRotina("data-retention", handle);
+export const POST = GET;

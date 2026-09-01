@@ -35,6 +35,7 @@ import { logger } from "@/lib/logger";
 import { PROVEDOR_GOOGLE } from "@/lib/agenda/tipos";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptWebhookSecret } from "@/lib/webhooks/secrets";
+import { comExecucaoDeRotina } from "@/lib/rotinas/registrar";
 
 export const dynamic = "force-dynamic";
 
@@ -252,10 +253,5 @@ async function executar(req: NextRequest): Promise<Response> {
   return NextResponse.json({ data: resumo });
 }
 
-export async function GET(req: NextRequest): Promise<Response> {
-  return executar(req);
-}
-
-export async function POST(req: NextRequest): Promise<Response> {
-  return executar(req);
-}
+export const GET = comExecucaoDeRotina("agenda-google-push", executar);
+export const POST = GET;

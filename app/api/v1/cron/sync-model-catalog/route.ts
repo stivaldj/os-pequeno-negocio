@@ -50,6 +50,7 @@ import {
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { comExecucaoDeRotina } from "@/lib/rotinas/registrar";
 
 export const dynamic = "force-dynamic";
 
@@ -162,5 +163,5 @@ async function handler(req: NextRequest): Promise<Response> {
   }
 }
 
-export const GET = handler;
-export const POST = handler;
+export const GET = comExecucaoDeRotina("sync-model-catalog", handler);
+export const POST = GET;
