@@ -21,6 +21,7 @@
  * Dedup por `ref_kind`/`ref_id`: a mesma resposta pode cair em duas rodadas
  * (a janela é de uma hora, o cron também), e um aviso basta.
  */
+import { configuracaoClinica } from "./config";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { audit } from "@/lib/audit";
@@ -37,17 +38,6 @@ export interface ResultadoDaVigiaClinica {
   suspeitas: number;
 }
 
-/**
- * Lê `settings.clinica.redacao_clinica === true`. Leitor local até
- * `lib/clinica/config.ts` chegar pela mesclagem da Tarefa 2; então este vira
- * `configuracaoClinica(settings).redacao`.
- */
-export function redacaoLigada(settings: unknown): boolean {
-  if (settings === null || typeof settings !== "object") return false;
-  const clinica = (settings as { clinica?: unknown }).clinica;
-  if (clinica === null || typeof clinica !== "object") return false;
-  return (clinica as { redacao_clinica?: unknown }).redacao_clinica === true;
-}
 
 interface Org {
   id: string;
@@ -62,7 +52,7 @@ interface Resposta {
 async function contasComRedacao(admin: SupabaseClient): Promise<Org[]> {
   const { data, error } = await admin.from("organizations").select("id, settings");
   if (error) throw new Error(`organizations: ${error.message}`);
-  return ((data ?? []) as Org[]).filter((o) => redacaoLigada(o.settings));
+  return ((data ?? []) as Org[]).filter((o) => configuracaoClinicaLigada(o.settings));
 }
 
 async function respostasDoAgente(admin: SupabaseClient, orgId: string, desde: Date): Promise<Resposta[]> {
@@ -134,4 +124,8 @@ export async function vigiarAtoMedico(
   }
 
   return { organizacoes: contas.length, mensagens, suspeitas };
+}
+
+function configuracaoClinicaLigada(settings: unknown): boolean {
+  return configuracaoClinica(settings).redacao;
 }

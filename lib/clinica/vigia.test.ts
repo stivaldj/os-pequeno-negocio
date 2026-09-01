@@ -106,7 +106,7 @@ function adminFalso(): SupabaseClient {
   } as unknown as SupabaseClient;
 }
 
-const { vigiarAtoMedico, redacaoLigada } = await import("./vigia");
+const { vigiarAtoMedico } = await import("./vigia");
 
 const LIGADA = { clinica: { redacao_clinica: true } };
 const ORG = "11111111-1111-4111-8111-111111111111";
@@ -136,17 +136,6 @@ beforeEach(() => {
   auditados.length = 0;
 });
 
-describe("redacaoLigada", () => {
-  it("só é verdade com settings.clinica.redacao_clinica === true", () => {
-    expect(redacaoLigada(LIGADA)).toBe(true);
-    expect(redacaoLigada({ clinica: { redacao_clinica: "true" } })).toBe(false);
-    expect(redacaoLigada({ clinica: { redacao_clinica: false } })).toBe(false);
-    expect(redacaoLigada({ clinica: {} })).toBe(false);
-    expect(redacaoLigada({})).toBe(false);
-    expect(redacaoLigada(null)).toBe(false);
-    expect(redacaoLigada("x")).toBe(false);
-  });
-});
 
 describe("vigiarAtoMedico", () => {
   it("resposta que prescreve → item na Central e audit, sem o texto", async () => {
