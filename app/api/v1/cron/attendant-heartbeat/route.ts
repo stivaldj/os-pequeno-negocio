@@ -19,10 +19,11 @@ import { audit } from "@/lib/audit";
 import { env } from "@/lib/env";
 import { HEARTBEAT_TIMEOUT_MINUTES } from "@/lib/routing/eligibility";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { comExecucaoDeRotina } from "@/lib/rotinas/registrar";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest): Promise<Response> {
+async function handle(req: NextRequest): Promise<Response> {
   const requestId = randomUUID();
 
   const authHeader = req.headers.get("authorization") ?? "";
@@ -67,3 +68,5 @@ export async function GET(req: NextRequest): Promise<Response> {
 
   return ok({ swept, cutoff }, { requestId });
 }
+
+export const GET = comExecucaoDeRotina("attendant-heartbeat", handle);

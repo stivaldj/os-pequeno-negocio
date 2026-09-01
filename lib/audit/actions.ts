@@ -391,6 +391,11 @@ export const AUDIT_ACTIONS = [
   // Relógio HTTP (Hobby / sem contêiner scheduler): uma batida que alguém
   // de fora chama. Só audita quando alguma tarefa mexeu em dado.
   "relogio.tick_run",
+  // O vigia das rotinas (`lib/rotinas/vigia.ts`) achou uma rotina do scheduler
+  // calada há mais que a tolerância. Uma linha por ausência detectada — não por
+  // rodada do vigia: rodada que achou tudo em dia não audita, como manda a
+  // regra do cron desta base.
+  "rotinas.nao_rodou",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */

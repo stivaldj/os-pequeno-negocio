@@ -43,6 +43,7 @@ import { audit } from "@/lib/audit";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { comExecucaoDeRotina } from "@/lib/rotinas/registrar";
 
 export const dynamic = "force-dynamic";
 
@@ -239,10 +240,5 @@ async function handle(req: NextRequest): Promise<Response> {
   return ok(result, { requestId });
 }
 
-export async function GET(req: NextRequest): Promise<Response> {
-  return handle(req);
-}
-
-export async function POST(req: NextRequest): Promise<Response> {
-  return handle(req);
-}
+export const GET = comExecucaoDeRotina("recover-stuck-messages", handle);
+export const POST = GET;

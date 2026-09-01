@@ -40,6 +40,7 @@ import { classificarErroDoGoogle, estadoDaConexaoApos } from "@/lib/agenda/googl
 import { fundirTokens, precisaRenovar, type TokenDoGoogle } from "@/lib/agenda/google/oauth";
 import { renovarToken } from "@/lib/agenda/google/token";
 import { env } from "@/lib/env";
+import { comExecucaoDeRotina } from "@/lib/rotinas/registrar";
 
 export const dynamic = "force-dynamic";
 
@@ -218,10 +219,5 @@ async function executar(req: NextRequest): Promise<Response> {
   return NextResponse.json({ data: resumo });
 }
 
-export async function GET(req: NextRequest): Promise<Response> {
-  return executar(req);
-}
-
-export async function POST(req: NextRequest): Promise<Response> {
-  return executar(req);
-}
+export const GET = comExecucaoDeRotina("agenda-google-refresh", executar);
+export const POST = GET;

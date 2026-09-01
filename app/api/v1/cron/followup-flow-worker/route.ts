@@ -30,6 +30,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseAdminClient, runFollowupTick, type FollowupJobRequest } from "@/lib/followup/engine";
 import { createSupabaseFollowupGateDb } from "@/lib/followup/agent-followup-gate";
 import { createSupabaseSilenceSweepDb, runSilenceSweep } from "@/lib/followup/silence-sweep";
+import { comExecucaoDeRotina } from "@/lib/rotinas/registrar";
 
 export const dynamic = "force-dynamic";
 
@@ -133,10 +134,5 @@ async function handle(req: NextRequest): Promise<Response> {
   return ok(summary, { requestId });
 }
 
-export async function GET(req: NextRequest): Promise<Response> {
-  return handle(req);
-}
-
-export async function POST(req: NextRequest): Promise<Response> {
-  return handle(req);
-}
+export const GET = comExecucaoDeRotina("followup-flow-worker", handle);
+export const POST = GET;

@@ -20,6 +20,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { drainEventLog } from "@/lib/event-log/drain";
 import { ensureHandlersRegistered } from "@/lib/event-log/register-handlers";
 import { logger } from "@/lib/logger";
+import { comExecucaoDeRotina } from "@/lib/rotinas/registrar";
 
 export const dynamic = "force-dynamic";
 
@@ -52,10 +53,5 @@ async function handle(req: NextRequest): Promise<Response> {
   }
 }
 
-export async function GET(req: NextRequest): Promise<Response> {
-  return handle(req);
-}
-
-export async function POST(req: NextRequest): Promise<Response> {
-  return handle(req);
-}
+export const GET = comExecucaoDeRotina("event-log-drain", handle);
+export const POST = GET;

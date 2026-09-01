@@ -28,6 +28,7 @@ import { DEFAULT_CHANNEL_PROVIDER, getAdapter, type ChannelProvider } from "@/li
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { comExecucaoDeRotina } from "@/lib/rotinas/registrar";
 
 export const dynamic = "force-dynamic";
 
@@ -236,5 +237,5 @@ async function handle(req: NextRequest): Promise<Response> {
   );
 }
 
-export const GET = handle;
-export const POST = handle;
+export const GET = comExecucaoDeRotina("contact-avatars", handle);
+export const POST = GET;

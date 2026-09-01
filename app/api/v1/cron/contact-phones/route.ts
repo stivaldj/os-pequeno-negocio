@@ -49,6 +49,7 @@ import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { canonicalPhoneBR } from "@/lib/channels/phone-variants";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { comExecucaoDeRotina } from "@/lib/rotinas/registrar";
 
 export const dynamic = "force-dynamic";
 
@@ -199,5 +200,5 @@ async function handle(req: NextRequest): Promise<Response> {
   );
 }
 
-export const GET = handle;
-export const POST = handle;
+export const GET = comExecucaoDeRotina("contact-phones", handle);
+export const POST = GET;
