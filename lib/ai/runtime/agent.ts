@@ -41,6 +41,7 @@ import type { McpContext } from "@/lib/mcp/types";
 import { computeCostCents } from "./cost";
 import { finalizeRun } from "./finalize";
 import { sendFinalResponse } from "./finalize";
+import { chaveDePlataforma } from "@/lib/ai/chave-de-plataforma";
 import { finalizeHandoff } from "./handoff";
 import { loadHistoryWithBudget } from "./history";
 import { mintEphemeralToken, revokeEphemeralToken } from "./mcp_token";
@@ -146,20 +147,8 @@ function buildSentinelRegex(keywords: string[]): RegExp | null {
  * `case "..."` no texto do arquivo, que passa com um switch que compila e não
  * executa.
  */
-/**
- * A chave de plataforma do provedor — as mesmas variáveis que
- * `llmEdgeConfigFromEnv` lê no turno de produção. Google não tem: o runtime
- * real também não tem ramo de fallback para ele, e prometer aqui um caminho que
- * lá não existe faria o ensaio passar e a mensagem real falhar.
- */
-export function chaveDePlataforma(provider: string): string | null {
-  const nome = { anthropic: "ANTHROPIC_API_KEY", openai: "OPENAI_API_KEY", openrouter: "OPENROUTER_API_KEY" }[
-    provider
-  ];
-  if (!nome) return null;
-  const v = (process.env[nome] ?? "").trim();
-  return v === "" ? null : v;
-}
+// `chaveDePlataforma` morava aqui; vive em lib/ai/chave-de-plataforma.ts desde
+// que o fork aposentou este motor — um lookup de env não pertence a motor nenhum.
 
 export function buildModel(provider: string, apiKey: string, modelId: string): LanguageModel {
   switch (provider) {

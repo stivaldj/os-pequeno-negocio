@@ -270,11 +270,8 @@ export async function startWorker(
   const loopsAbort = new AbortController();
 
   // Drain do event_log (mesmo banco pós-fusão) — transforma dispatch_requested em
-  // jobs. Fase 0 (convergência, spec 2026-07-23): o drain liga SEMPRE — o
-  // dispatcher nativo EPIC-13 foi aposentado, o engine é o único consumidor.
-  if (env.AGENT_DISPATCH_CONSUMER === 'native') {
-    log.warn('AGENT_DISPATCH_CONSUMER=native é OBSOLETO (Fase 0) — o drain do engine é o único consumidor; valor ignorado', {});
-  }
+  // jobs. O drain liga SEMPRE: o dispatcher nativo EPIC-13 foi removido no fork,
+  // o engine é o único consumidor.
   const drainLoop = runDrainLoop(
     pool,
     {

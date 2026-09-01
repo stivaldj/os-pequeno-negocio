@@ -13,7 +13,8 @@ import { generateText } from "ai";
 
 import { audit } from "@/lib/audit";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { buildModel, chaveDePlataforma } from "@/lib/ai/runtime/agent";
+import { createDefaultRegistry } from "@/lib/agent-engine/edge/llm/providers";
+import { chaveDePlataforma } from "@/lib/ai/chave-de-plataforma";
 import { loadCredential } from "@/lib/ai/credentials";
 import { slugDeNome } from "@/lib/leads/stage-editing";
 import {
@@ -151,9 +152,23 @@ export async function dadosDoPasso(orgId: string, negocio: string): Promise<Dado
     };
   }
 
+  // O registry canônico do turno de produção — mesmo provedor, mesmo egress
+  // contido por allowlist. `montarQuadro` era o último chamador do switch
+  // `buildModel` do motor antigo.
+  const fabricarModelo = createDefaultRegistry()[cerebro.provider];
+  if (!fabricarModelo) {
+    return {
+      atual,
+      sugestao: {
+        origem: "pacote",
+        pacote: escolherPacotePorTexto(`${negocio} ${oQueFaz}`),
+        porque: `esta instalação não sabe falar com ${cerebro.provider}`,
+      },
+    };
+  }
   const sugestao = await sugerirFunil(ctx, async ({ system, prompt }) => {
     const r = await generateText({
-      model: buildModel(cerebro.provider, cerebro.apiKey, cerebro.model),
+      model: fabricarModelo(cerebro.apiKey, cerebro.model),
       system,
       prompt,
       // Teto baixo de propósito: são sete linhas de JSON. Um modelo que resolva

@@ -6,8 +6,7 @@
  * `TriggerEditor.tsx` mostra "Só atender em horário de funcionamento" com fuso,
  * início, fim e dias da semana, e grava tudo em
  * `ai_agent_versions.trigger_config.filters.business_hours`. O ÚNICO leitor
- * desse campo era `lib/ai/dispatcher/triggers.ts` — o dispatcher legado, que
- * hoje é NO-OP permanente (`app/api/v1/cron/agent-dispatcher/route.ts`). O
+ * desse campo era o dispatcher legado (removido no fork). O
  * runtime vivo (`lib/agent-engine`) nunca soube que o campo existia.
  *
  * Resultado medido numa instalação real (2026-08-18): a versão publicada dizia

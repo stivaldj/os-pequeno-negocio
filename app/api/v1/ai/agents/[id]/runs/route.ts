@@ -9,11 +9,9 @@
  * `llm_calls` com **130** de `purpose='agent_turn'` na mesma organização, a
  * última do próprio dia.
  *
- * `ai_agent_runs` só tem dois escritores no repo, e nenhum é o motor de
- * produção: o dispatcher legado (`lib/ai/dispatcher/index.ts`, sem chamador — o
- * cron `app/api/v1/cron/agent-dispatcher` devolve `{ skipped: true,
- * deprecated: true }`) e o runner legado. O motor que responde de verdade é o
- * `lib/agent-engine`, e ele registra em `llm_calls`.
+ * `ai_agent_runs` não tem escritor no motor de produção (o dispatcher legado
+ * foi removido no fork; sobrou só o runner de teste de versão). O motor que
+ * responde de verdade é o `lib/agent-engine`, e ele registra em `llm_calls`.
  *
  * Uma tela que promete um registro que motor nenhum escreve é pior que uma tela
  * ausente: ela responde "não aconteceu nada" a quem está investigando
