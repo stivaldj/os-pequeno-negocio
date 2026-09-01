@@ -157,3 +157,20 @@ Tudo em `lib/channels/meta/coexistencia/` para a prova da issue. Fonte: página 
 ## O que este plano não faz
 
 Não mexe em `inbound-turn.ts`. Não cria adapter Kapso (o de Zernio existe como ponte). Não implementa o aviso ao Dono por WhatsApp quando uma rotina falha — isso precisa do destinatário "dono", que é da Fase 7; até lá o alerta é linha em `job_runs`, item em `agent_inbox_items` e audit. Não reduz a colisão entre app e Agente além do silêncio por intervalo (ADR-0014).
+
+---
+
+## Desvios registrados na execução (02/09/2026)
+
+- **Tarefas 1 e 2 num commit só.** O registry importa o adapter; o provider não compila sem ele.
+- **Provider `fake_channel`, não `fake`.** A catraca de lint reconhece provider por grafia separada e PascalCase; `fake` sozinho casaria com todo helper de teste do repo.
+- **"Em produção lança" virou predicado puro** (`lib/channels/fake/registro.ts`). Reimportar o registry em modo produção arrasta `lib/env.ts`, que exige o `.env` inteiro.
+- **Tarefa 4 entrou no commit da Tarefa 9** (`sessao.ts` + invariante), por um `git add -A` apressado. O invariante foi provado no `pnpm test:db` de 02/09.
+- **Env da família Meta lida de `process.env`**, não de `lib/env.ts`, seguindo `metaCredsFromEnv`. E as três variáveis ficam **só em `.env.example`**: o validador do `hostgator-setup-kit` exige que toda chave do `.env.hostgator.example` seja gravada pelo `install.sh`, e o kit não oferece Embedded Signup (doutrina).
+- **`ingestMetaInbound` intocado.** Em vez da flag prevista na Tarefa 12, eco e histórico compartilham `coexistencia/gravar.ts`, que usa as mesmas RPCs. Zero edição em código herdado do ingest.
+- **Baseline: apêndices antes da varredura anon** (regra de `tests/unit/varredura-anon-e-o-ultimo-bloco.test.ts`), não no fim do arquivo como o plano dizia.
+- **`job_runs` tem entrada em `PROVA_PROPRIA`** da varredura de completude de RLS, porque a coluna `organization_id` existe (nullable) e a varredura reprova tabela fora das listas.
+- **Vigia:** resposta não-2xx fecha a linha como `failed`; `kind: "job_dead"` no inbox; tolerância inclusiva; rotina sem linha alguma usa a linha mais antiga de `job_runs` como referência.
+- **Tarefa 8:** 15 rotas tinham `POST` (não 11); formas internas variavam (`handle`, `executar`, `handler`) e foram mantidas, só os exports mudaram.
+- **Invariante `channel-provider-schema`** passou a esperar `meta_coexistence` entre as colunas `meta_%`.
+- **`test:shell`** continua com o vermelho pré-existente do apóstrofo no macOS; o único vermelho novo (chaves no exemplo do kit) foi corrigido.
