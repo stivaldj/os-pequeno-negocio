@@ -13,6 +13,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 import { audit } from "@/lib/audit";
 import { sincronizarSaudeDaConexao } from "@/lib/channels/health";
+import { prepararEntradaDoContato } from "@/lib/clinica/redacao";
 import { aplicarEfeitosPosEntrada } from "@/lib/channels/pos-entrada";
 import { acelerarPipelineDeEventos } from "@/lib/dev/kick-local-pipeline";
 import { canonicalPhoneBR } from "@/lib/channels/phone-variants";
@@ -586,6 +587,8 @@ async function handleInbound(
   if (!conversationId) return;
 
   const now = new Date().toISOString();
+  // Redação clínica ANTES de gravar (ADR-0004).
+  const preparada = await prepararEntradaDoContato(admin, session.organization_id, texto);
   const { data: insertedMessage, error: insertErr } = await admin
     .from("messages")
     .insert({
@@ -598,13 +601,13 @@ async function handleInbound(
       direction: "inbound",
       status: "delivered",
       ack: p.ack ?? null,
-      body: texto,
+      body: preparada.body,
       media_url: mediaUrlOf(p),
       media_mime: mediaMimeOf(p),
       sent_via: "external_device",
       sent_at: p.timestamp ? new Date(p.timestamp * 1000).toISOString() : now,
       delivered_at: now,
-      metadata: { raw_type: p.type, ack_name: p.ackName },
+      metadata: { raw_type: p.type, ack_name: p.ackName, ...(preparada.redigido ? { redigido: { motivo: preparada.redigido.motivo } } : {}) },
     })
     .select("id")
     .maybeSingle();
@@ -652,7 +655,7 @@ async function handleInbound(
     return;
   }
 
-  await markConversation(admin, session.organization_id, conversationId, "inbound", previewFromMessage(p), now);
+  await markConversation(admin, session.organization_id, conversationId, "inbound", preparada.redigido ? preparada.preview : previewFromMessage(p), now);
 
   await audit({
     action: "message.received",
@@ -679,7 +682,8 @@ async function handleInbound(
     conversationId,
     messageId: insertedMessage?.id ?? null,
     channelSessionId: session.id,
-    texto,
+    texto: preparada.textoParaEfeitos,
+    redigido: preparada.redigido,
     nomeDoContato: notifyNameOf(p),
     requestId,
     origem: "waha_webhook",

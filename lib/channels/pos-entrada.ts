@@ -90,6 +90,12 @@ export interface EntradaDeMensagem {
   channelSessionId: string;
   /** O texto que o cliente escreveu — é onde se procura o pedido de saída. */
   texto: string | null;
+  /**
+   * Redação clínica (ADR-0004): quando o preparador redigiu a mensagem, só a
+   * categoria chega aqui — nunca o texto. Presente = a conversa vai para
+   * humano antes de qualquer despacho do Agente.
+   */
+  redigido?: { motivo: string } | null;
   /** Nome exibido pelo canal, quando houver. Serve para batizar o card novo. */
   nomeDoContato: string | null;
   /** Correlaciona a linha de auditoria com a request que a originou. */

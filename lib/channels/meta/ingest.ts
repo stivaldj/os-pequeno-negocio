@@ -26,6 +26,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { ARCHIVED_AT, queryTolerantToMissingArchived } from "../archived";
 import { aplicarEfeitosPosEntrada } from "../pos-entrada";
 import { encontrarContatoPorTelefone } from "../contato-por-telefone";
+import { prepararEntradaDoContato } from "@/lib/clinica/redacao";
 import { canonicalPhoneBR, phoneLookupVariants } from "../phone-variants";
 import type { ChannelTenantScope } from "../types";
 import type { InboundMessageEvent } from "./webhook";
@@ -165,6 +166,11 @@ export async function ingestMetaInbound(
     return { status: "failed", reason: `conversa: ${erroConversa?.message ?? "sem id"}` };
   }
 
+  // Redação clínica ANTES de gravar (ADR-0004): em Conta de saúde, texto com
+  // sintoma/condição/medicação vira marcador aqui e não chega a lugar nenhum.
+  const textoCru = e.type === "contact" ? (e.sharedContact?.name ?? e.text) : e.text;
+  const preparada = await prepararEntradaDoContato(admin, orgId, textoCru ?? null);
+
   const { data: inserida, error: erroInsert } = await admin
     .from("messages")
     .insert({
@@ -178,13 +184,14 @@ export async function ingestMetaInbound(
       status: "delivered",
       // A Meta manda `contacts` (plural); o CHECK do banco espera `contact`.
       type: e.type === "text" ? "text" : e.type,
-      body: e.type === "contact" ? (e.sharedContact?.name ?? e.text) : e.text,
+      body: preparada.body,
       external_id: e.externalId,
       media_mime: e.media?.mime ?? null,
       sent_at: e.sentAt.toISOString(),
       metadata: {
         ...(e.media ? { meta_media_id: e.media.id, voice: e.media.voice } : {}),
         ...(e.sharedContact ? { shared_contact: e.sharedContact } : {}),
+        ...(preparada.redigido ? { redigido: { motivo: preparada.redigido.motivo } } : {}),
       },
     })
     .select("id")
@@ -203,7 +210,7 @@ export async function ingestMetaInbound(
   await admin.rpc("fn_mark_conversation_message" as never, {
     p_conv: conversationId as string,
     p_direction: "inbound",
-    p_preview: previewOf(e),
+    p_preview: preparada.redigido ? preparada.preview : previewOf(e),
     p_at: e.sentAt.toISOString(),
   } as never);
 
@@ -214,7 +221,8 @@ export async function ingestMetaInbound(
     conversationId: conversationId as string,
     messageId: messageId || null,
     channelSessionId: sessao.id,
-    texto: e.text ?? null,
+    texto: preparada.redigido ? null : (e.text ?? null),
+    redigido: preparada.redigido,
     nomeDoContato: e.profileName ?? null,
     origem: "meta_webhook",
   });

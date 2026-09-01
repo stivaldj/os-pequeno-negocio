@@ -10,6 +10,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { encontrarContatoPorTelefone } from "../../contato-por-telefone";
 import { canonicalPhoneBR } from "../../phone-variants";
+import { prepararEntradaDoContato, type EntradaPreparada } from "@/lib/clinica/redacao";
 
 export interface SessaoDaCoexistencia {
   id: string;
@@ -67,6 +68,13 @@ export async function gravarMensagem(
   const ids = await garantirContatoEConversa(admin, sessao, input.waId, input.nome ?? null);
   if ("failed" in ids) return { status: "failed", reason: ids.failed };
 
+  // Redação clínica ANTES de gravar (ADR-0004) — só o que o Contato escreveu.
+  // A saída da recepção (eco) não é texto do Contato e passa íntegra.
+  const preparada: EntradaPreparada =
+    input.direction === "inbound"
+      ? await prepararEntradaDoContato(admin, sessao.organizationId, input.text)
+      : { body: input.text, preview: (input.text ?? `[${input.type}]`).slice(0, 120), textoParaEfeitos: input.text, redigido: null };
+
   const { data: inserida, error: erroInsert } = await admin
     .from("messages")
     .insert({
@@ -77,11 +85,11 @@ export async function gravarMensagem(
       direction: input.direction,
       status: "delivered",
       type: input.type === "text" ? "text" : input.type,
-      body: input.text,
+      body: preparada.body,
       external_id: input.externalId,
       media_mime: null,
       sent_at: input.sentAt.toISOString(),
-      metadata: { origem: input.origem },
+      metadata: { origem: input.origem, ...(preparada.redigido ? { redigido: { motivo: preparada.redigido.motivo } } : {}) },
     })
     .select("id")
     .maybeSingle();
@@ -94,7 +102,7 @@ export async function gravarMensagem(
     await admin.rpc("fn_mark_conversation_message" as never, {
       p_conv: ids.conversationId,
       p_direction: input.direction,
-      p_preview: (input.text ?? `[${input.type}]`).slice(0, 120),
+      p_preview: preparada.preview || `[${input.type}]`,
       p_at: input.sentAt.toISOString(),
     } as never);
   }

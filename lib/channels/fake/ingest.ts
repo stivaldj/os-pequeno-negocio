@@ -9,6 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { encontrarContatoPorTelefone } from "../contato-por-telefone";
 import { canonicalPhoneBR } from "../phone-variants";
 import { aplicarEfeitosPosEntrada } from "../pos-entrada";
+import { prepararEntradaDoContato } from "@/lib/clinica/redacao";
 
 export interface FakeInboundEvent {
   from: string;
@@ -57,6 +58,9 @@ export async function ingestFakeInbound(
     return { status: "failed", reason: `conversa: ${erroConversa?.message ?? "sem id"}` };
   }
 
+  // Redação clínica ANTES de gravar (ADR-0004).
+  const preparada = await prepararEntradaDoContato(admin, orgId, e.text);
+
   const { data: inserida, error: erroInsert } = await admin
     .from("messages")
     .insert({
@@ -67,11 +71,11 @@ export async function ingestFakeInbound(
       direction: "inbound",
       status: "delivered",
       type: "text",
-      body: e.text,
+      body: preparada.body,
       external_id: e.externalId,
       media_mime: null,
       sent_at: e.sentAt.toISOString(),
-      metadata: { origem: "fake_channel" },
+      metadata: { origem: "fake_channel", ...(preparada.redigido ? { redigido: { motivo: preparada.redigido.motivo } } : {}) },
     })
     .select("id")
     .maybeSingle();
@@ -83,7 +87,7 @@ export async function ingestFakeInbound(
   await admin.rpc("fn_mark_conversation_message" as never, {
     p_conv: conversationId as string,
     p_direction: "inbound",
-    p_preview: e.text.slice(0, 120),
+    p_preview: preparada.preview,
     p_at: e.sentAt.toISOString(),
   } as never);
 
@@ -94,7 +98,8 @@ export async function ingestFakeInbound(
     conversationId: conversationId as string,
     messageId: messageId || null,
     channelSessionId,
-    texto: e.text,
+    texto: preparada.textoParaEfeitos,
+    redigido: preparada.redigido,
     nomeDoContato: e.profileName ?? null,
     origem: "fake_webhook",
   });
