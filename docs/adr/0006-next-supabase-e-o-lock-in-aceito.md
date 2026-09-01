@@ -7,3 +7,7 @@ Alternativas reais eram backend separado (Hono/Fastify) e Python no servidor. Re
 ## Consequências
 
 Ficamos presos ao Postgres e ao ecossistema Supabase para auth. Sair custa semanas. Em compensação, a segunda trava de isolamento vem de graça e não depende de disciplina de código.
+
+## Emenda (01/09/2026, Spec 0003)
+
+O fork do DeskcommCRM não usa Drizzle: o acesso é `@supabase/supabase-js` atrás de RLS, com admin client filtrando `organization_id` à mão quando bypassa. A decisão de stack se mantém; a menção a Drizzle é substituída pelo que o fork entrega.

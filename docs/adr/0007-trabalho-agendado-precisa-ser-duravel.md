@@ -11,3 +11,7 @@ O Vercel Cron está descartado por documentação da própria Vercel: a entrega 
 ## Consequências
 
 O free tier do Inngest guarda só 24h de rastreamento, e o salto de plano não tem meio-termo. A tabela `job_runs` existe justamente para não depender do painel dele para saber que algo não rodou.
+
+## Emenda (01/09/2026, Spec 0003)
+
+O Inngest sai. O fork traz um scheduler próprio (cron HTTP no contêiner `scheduler`, lista `CRONS`) e uma fila com claim, retry e escalada para humano. O que ele não tem é histórico de execução nem alerta de ausência — e é isso, não o fornecedor, que esta ADR sempre exigiu. `lib/rotinas/` cria `job_runs` e o vigia de "não rodou desde X". O princípio permanece: falha silenciosa vira falha barulhenta.

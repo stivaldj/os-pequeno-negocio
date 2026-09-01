@@ -11,3 +11,7 @@ O escopo desejado cresceu em paralelo à arquitetura e nada disso tem uma linha 
 O painel do Dono nasce mais pobre do que o destino escrito no README, e parte da pesquisa já feita (Twenty CRM, Pluggy/OFX) fica parada por tempo indeterminado. As ADRs de longo prazo continuam válidas e não precisam ser refeitas quando os módulos cortados voltarem — este ADR corta calendário, não arquitetura.
 
 Revisitar quando a Clínica Humana operar sem intervenção manual diária por algumas semanas, ou quando um segundo cliente pedir explicitamente um dos módulos cortados — o que vier primeiro. Até lá, pedido de expandir escopo volta como ideia nova, não como adendo a este ADR.
+
+## Emenda (01/09/2026, Spec 0003)
+
+O corte desta ADR era de calendário, e o calendário mudou: o fork entregou de uma vez a camada que o MVP ia construir à mão. O alvo volta a ser a frase de destino inteira do README, para uma Conta só — a Clínica Humana. Continua valendo: uma Conta, um Agente, nenhum Embarque de segunda Conta antes da primeira estável. A Spec 0002, escrita para repo vazio, é substituída pela Spec 0003.
