@@ -40,6 +40,7 @@
  */
 import { audit } from "@/lib/audit";
 import { garantirLeadDaConversa } from "@/lib/leads/nascimento-do-lead";
+import { passarPorConteudoClinico } from "@/lib/clinica/passagem";
 import { logger } from "@/lib/logger";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import { ehPedidoDeOptOut } from "@/lib/opt-out/deteccao";
@@ -130,6 +131,24 @@ export async function aplicarEfeitosPosEntrada(
     messageId: entrada.messageId,
     texto: entrada.texto,
   });
+  // Redação clínica (ADR-0004): a conversa vai para humano ANTES de qualquer
+  // despacho — o Agente não pode responder o que não pode ler.
+  if (entrada.redigido) {
+    try {
+      await passarPorConteudoClinico({
+        organizationId: entrada.organizationId,
+        conversationId: entrada.conversationId,
+        contactId: entrada.contactId,
+      });
+    } catch (err) {
+      logger.error("pos-entrada: Passagem por Conteúdo Clínico falhou — o Agente continua calado por não haver despacho", {
+        organization_id: entrada.organizationId,
+        conversation_id: entrada.conversationId,
+        detail: err instanceof Error ? err.message.slice(0, 160) : "desconhecido",
+      });
+    }
+    return;
+  }
   await pedirDespachoDoAgente(admin, entrada);
 }
 
