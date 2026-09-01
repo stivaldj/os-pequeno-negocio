@@ -9,7 +9,9 @@ import type { OutboundMedia } from "@/lib/waha/media-send";
 
 export type { OutboundMedia };
 
-export type ChannelProvider = "waha" | "meta_cloud" | "zernio";
+// `fake_channel` só existe fora de produção (registry em `index.ts`); é o canal
+// das provas locais (Spec 0003, Fase 2), não um provider de verdade.
+export type ChannelProvider = "waha" | "meta_cloud" | "zernio" | "fake_channel";
 
 export interface ChannelCapabilities {
   /** Pode enviar texto livre a qualquer momento? false = exige template fora da janela. */

@@ -9378,7 +9378,7 @@ alter table public.channel_sessions
 
 alter table public.channel_sessions
   add constraint channel_sessions_provider_check
-  check (provider = any (array['waha'::text, 'meta_cloud'::text, 'zernio'::text]));
+  check (provider = any (array['waha'::text, 'meta_cloud'::text, 'zernio'::text, 'fake_channel'::text]));
 
 alter table public.channel_sessions
   drop constraint if exists channel_sessions_provider_ref_check;
@@ -9387,7 +9387,9 @@ alter table public.channel_sessions
   add constraint channel_sessions_provider_ref_check check (
     (provider = 'waha'       and waha_session_name    is not null) or
     (provider = 'meta_cloud' and meta_phone_number_id is not null) or
-    (provider = 'zernio'     and zernio_account_id    is not null)
+    (provider = 'zernio'     and zernio_account_id    is not null) or
+    -- Canal das provas locais (migration 0204): reusa a coluna do QR como ref.
+    (provider = 'fake_channel' and waha_session_name  is not null)
   );
 
 comment on column public.channel_sessions.zernio_account_id is
@@ -17188,3 +17190,17 @@ grant execute on function public.fn_decrypt_oauth(bytea) to service_role;
 grant execute on function public.fn_encrypt_oauth(text) to service_role;
 grant execute on function public.fn_lgpd_cascade_redact_contact(uuid, uuid, uuid) to service_role;
 grant execute on function public.fn_update_budget_consumption() to service_role;
+
+-- ---- canal fake para provas locais (migration 0204) ----
+--
+-- `fake_channel` é o `ChannelAdapter` das provas locais (Spec 0003, Fase 2):
+-- envia para uma caixa em memória e recebe pelo webhook genérico. O registry
+-- em `lib/channels/index.ts` só o conhece fora de produção.
+--
+-- O banco precisa aceitá-lo em `channel_sessions.provider` para o ingest achar
+-- a sessão. As duas constraints de provider são definidas UMA vez só, no bloco
+-- da migration 0132 acima (regra de `tests/unit/baseline-constraint-reconstruida.test.ts`):
+-- foi lá que `'fake_channel'` entrou no `provider_check` e o ramo
+-- `(provider = 'fake_channel' and waha_session_name is not null)` entrou no
+-- `provider_ref_check`. Este bloco existe para o histórico do baseline dizer
+-- QUANDO o vocabulário mudou; não tem DDL.
