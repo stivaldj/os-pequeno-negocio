@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { EmbeddedSignupButton } from "@/components/connections/EmbeddedSignupButton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -118,6 +119,23 @@ export function CanalOficialClient() {
                 </Badge>
               ))}
             </div>
+          </div>
+        </Card>
+      ) : null}
+
+      {estado?.embeddedSignup.available && estado.embeddedSignup.appId && estado.embeddedSignup.configId ? (
+        <Card className="p-4" data-testid="canal-embedded-signup">
+          <h2 className="font-medium">{t("Conectar pelo WhatsApp Business")}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("Entre com a conta da Meta e escolha o número que já está no aplicativo WhatsApp Business. O app")}{" "}
+            <strong>{t("continua funcionando no telefone")}</strong>
+            {t(" — o sistema passa a receber e responder pelo mesmo número, sem token para copiar.")}
+          </p>
+          <div className="mt-4">
+            <EmbeddedSignupButton
+              appId={estado.embeddedSignup.appId}
+              configId={estado.embeddedSignup.configId}
+            />
           </div>
         </Card>
       ) : null}

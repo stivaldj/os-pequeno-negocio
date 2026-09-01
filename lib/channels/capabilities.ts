@@ -69,6 +69,19 @@ export const CHANNEL_CAPABILITIES: Record<ChannelProvider, ChannelCapabilities> 
     groups: "limited",
     costPerMessage: true,
   },
+  // Canal das provas locais: sem janela, sem template, sem custo, sem risco.
+  // O que a cadeia `before_send` decide sobre ele é o que ela decidiria sobre
+  // um canal livre — é assim que uma prova exercita o caminho completo.
+  fake_channel: {
+    freeformOutsideWindow: true,
+    requiresTemplates: false,
+    canManageTemplates: false,
+    banRisk: false,
+    minIntervalMs: null,
+    voiceNote: "server-convert",
+    groups: "full",
+    costPerMessage: false,
+  },
 };
 
 /**
@@ -81,6 +94,7 @@ export const CHANNEL_CAPABILITIES: Record<ChannelProvider, ChannelCapabilities> 
  * CONSERVADOR dos dois — banRisk armado, throttle e warm-up ligados; errar para
  * o lado do meta_cloud desarmaria o anti-ban num número que pode ser banido.
  */
+
 export const DEFAULT_CHANNEL_PROVIDER: ChannelProvider = "waha";
 
 /**
@@ -90,6 +104,7 @@ export const DEFAULT_CHANNEL_PROVIDER: ChannelProvider = "waha";
 export const CHANNEL_PROVIDER_WAHA: ChannelProvider = "waha";
 export const CHANNEL_PROVIDER_META: ChannelProvider = "meta_cloud";
 export const CHANNEL_PROVIDER_ZERNIO: ChannelProvider = "zernio";
+export const CHANNEL_PROVIDER_FAKE: ChannelProvider = "fake_channel";
 
 export function capabilitiesOf(provider: ChannelProvider): ChannelCapabilities {
   const caps = CHANNEL_CAPABILITIES[provider];

@@ -28,11 +28,10 @@ import { fail, ok } from "@/lib/api/wrappers";
 import { requireRole } from "@/lib/auth/require-role";
 import { ARCHIVED_AT, queryTolerantToMissingArchived } from "@/lib/channels/archived";
 import { CHANNEL_PROVIDER_META } from "@/lib/channels/capabilities";
-import { validateMetaCredentials } from "@/lib/channels/meta/validate-credentials";
-import { reactivateChannelSession } from "@/lib/channels/reactivate";
+import { appDaMetaDoAmbiente } from "@/lib/channels/meta/coexistencia/embedded-signup";
+import { conectarCanalOficial } from "@/lib/channels/meta/conectar";
 import { env } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { encryptWebhookSecret } from "@/lib/webhooks/secrets";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -85,7 +84,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   );
 
   const base = publicBase(req);
+  // Opcional por instalação (ADR-0015): só a instalação que é Tech Provider
+  // declara o app. Nunca o secret — a tela só precisa de app e config.
+  const app = appDaMetaDoAmbiente();
   return ok({
+    embeddedSignup: app
+      ? { available: true, appId: app.appId, configId: app.configId }
+      : { available: false, appId: null, configId: null },
     connected: Boolean(data),
     // `hasToken` em vez do token: uma vez gravado, a tela mostra que EXISTE, nunca
     // qual é. Devolver o segredo para preencher o campo seria vazá-lo a cada render.
@@ -120,94 +125,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
   }
   const { phone_number_id, waba_id, token } = parsed.data;
-
-  // VALIDA ANTES DE GRAVAR — a rota não sabe com quem fala; ela pergunta se a
-  // credencial presta e o canal responde.
-  const validacao = await validateMetaCredentials({ phoneNumberId: phone_number_id, token });
-  if (!validacao.ok) {
-    return fail("invalid_request", validacao.motivo, 422, { requestId });
-  }
-
-  const admin = createAdminClient();
-  const cifrado = await encryptWebhookSecret(admin, token);
-  if (!cifrado) {
-    // Sem a GUC de cifra configurada, gravar o token em claro seria pior que
-    // recusar. O operador precisa saber que falta uma configuração de servidor.
-    return fail(
-      "invalid_request",
-      "cifra indisponível nesta instalação (GUC app.nuvemshop_oauth_key ausente) — o token não foi gravado",
-      422,
-      { requestId },
-    );
-  }
-
-  // A busca NÃO filtra `archived_at`: um canal oficial excluído é exatamente o
-  // que este POST precisa achar para trazer de volta. Ignorá-lo criaria uma
-  // SEGUNDA linha oficial na org — e a linha velha continuaria segurando o par
-  // (org, número) na trava da 0106.
-  const buscarExistente = (colunas: string) =>
-    admin
-      .from("channel_sessions")
-      .select(colunas)
-      .eq("organization_id", orgId)
-      .eq("provider", CHANNEL_PROVIDER_META)
-      .maybeSingle();
-  const { data: existenteRaw } = await queryTolerantToMissingArchived(
-    () => buscarExistente(`id, ${ARCHIVED_AT}`),
-    () => buscarExistente("id"),
-  );
-  const existente = existenteRaw as { id: string; archived_at?: string | null } | null;
-
-  const linha = {
-    organization_id: orgId,
-    provider: CHANNEL_PROVIDER_META,
-    meta_phone_number_id: phone_number_id,
-    meta_waba_id: waba_id,
-    meta_token_encrypted: cifrado,
-    phone_number: validacao.displayPhoneNumber ? `+${validacao.displayPhoneNumber.replace(/\D/g, "")}` : null,
-    display_name: validacao.verifiedName ?? "Canal oficial",
-    status: "WORKING",
-  };
-
-  // `update` quando já existe em vez de upsert: a trava única de (org,
-  // phone_number) não serve de árbitro de `ON CONFLICT` aqui. Era DEFERRABLE
-  // (medido ao criar a sessão de teste da Fase 3b, e o Postgres recusa
-  // constraint deferível na inferência); a migration 0107 a trocou por um índice
-  // único PARCIAL (`where archived_at is null`), que só seria inferível se a
-  // cláusula repetisse o predicado — e o cliente do PostgREST não expõe isso.
-  // Mudou a razão, não a escolha.
-  //
-  // O update passa por `reactivateChannelSession` porque reconectar é
-  // ressuscitar: o mesmo patch que devolve status, credencial e número tem que
-  // devolver a linha à vida, ou o canal fica "conectado" na tela e excluído para
-  // todo o resto do sistema. Para o canal que já estava ativo é um no-op — e a
-  // auditoria de volta sai de lá, junto da ressurreição, não daqui.
-  const { error } = existente
-    ? await reactivateChannelSession(
-        admin,
-        {
-          organizationId: orgId,
-          channelSessionId: existente.id,
-          archivedAt: existente.archived_at ?? null,
-        },
-        linha,
-        {
-          userId: userId,
-          requestId,
-          metadata: { provider: CHANNEL_PROVIDER_META, phone_number: linha.phone_number },
-        },
-      )
-    : await admin.from("channel_sessions").insert({ ...linha, webhook_secret_encrypted: cifrado });
-
-  if (error) {
-    return fail("internal_error", error.message ?? "channel_session_write_failed", 500, {
-      requestId,
-    });
-  }
-
+  const desfecho = await conectarCanalOficial(createAdminClient(), {
+    organizationId: orgId,
+    userId,
+    requestId,
+    phoneNumberId: phone_number_id,
+    wabaId: waba_id,
+    token,
+    coexistence: false,
+  });
+  if (!desfecho.ok) return fail(desfecho.code, desfecho.message, desfecho.status, { requestId });
   return ok({
     connected: true,
-    displayName: linha.display_name,
-    phoneNumber: linha.phone_number,
+    displayName: desfecho.displayName,
+    phoneNumber: desfecho.phoneNumber,
   });
 }

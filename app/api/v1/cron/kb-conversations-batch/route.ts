@@ -20,6 +20,7 @@ import { audit } from "@/lib/audit";
 import { env } from "@/lib/env";
 import { ingestConversationsBatch } from "@/lib/ai/rag/ingest/conversations";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { comExecucaoDeRotina } from "@/lib/rotinas/registrar";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ interface AgentRow {
   organization_id: string;
 }
 
-export async function GET(req: NextRequest): Promise<Response> {
+async function handle(req: NextRequest): Promise<Response> {
   const requestId = randomUUID();
 
   const auth = req.headers.get("authorization") ?? "";
@@ -135,3 +136,5 @@ export async function GET(req: NextRequest): Promise<Response> {
     { requestId },
   );
 }
+
+export const GET = comExecucaoDeRotina("kb-conversations-batch", handle);

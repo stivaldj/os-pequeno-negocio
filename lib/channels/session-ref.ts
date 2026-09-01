@@ -14,7 +14,9 @@
 export type ChannelSessionRef =
   | { provider: "waha"; waha_session_name: string }
   | { provider: "meta_cloud"; meta_phone_number_id: string }
-  | { provider: "zernio"; zernio_account_id: string };
+  | { provider: "zernio"; zernio_account_id: string }
+  // O fake reusa a coluna do QR como ref para não criar coluna só para prova.
+  | { provider: "fake_channel"; waha_session_name: string };
 
 /**
  * Colunas que um `select` do PostgREST precisa trazer para `resolveSessionRef`
@@ -35,5 +37,7 @@ export function resolveSessionRef(session: ChannelSessionRef): string {
     // endereça pelo id dele. Mandar o id da Meta aqui responde 404.
     case "zernio":
       return session.zernio_account_id;
+    case "fake_channel":
+      return session.waha_session_name;
   }
 }

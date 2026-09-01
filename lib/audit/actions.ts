@@ -29,6 +29,8 @@
  * `tests/unit/audit-lista-do-painel-e-derivada.test.tsx` reprova quem tentar.
  */
 export const AUDIT_ACTIONS = [
+  /** O Número entrou por Embedded Signup em Coexistência (ADR-0015). */
+  "channels.official.embedded_signup",
   "auth.login_success",
   "auth.login_failed",
   /** Teto de tentativas barrou antes de chegar ao provedor (issue #64). */
@@ -389,6 +391,11 @@ export const AUDIT_ACTIONS = [
   // Relógio HTTP (Hobby / sem contêiner scheduler): uma batida que alguém
   // de fora chama. Só audita quando alguma tarefa mexeu em dado.
   "relogio.tick_run",
+  // O vigia das rotinas (`lib/rotinas/vigia.ts`) achou uma rotina do scheduler
+  // calada há mais que a tolerância. Uma linha por ausência detectada — não por
+  // rodada do vigia: rodada que achou tudo em dia não audita, como manda a
+  // regra do cron desta base.
+  "rotinas.nao_rodou",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */

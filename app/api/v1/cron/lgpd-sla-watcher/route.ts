@@ -26,6 +26,7 @@ import { triggerSlaAlarm } from "@/lib/lgpd/sla-alarm";
 import { marcaDaSaida, type MarcaDeSaida } from "@/lib/branding/saida";
 import type { LgpdRequest } from "@/lib/lgpd/types";
 import type { AlarmThreshold } from "@/lib/lgpd/sla-alarm";
+import { comExecucaoDeRotina } from "@/lib/rotinas/registrar";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +40,7 @@ interface OrgRow {
 
 type RequestWithOrg = LgpdRequest & OrgRow;
 
-export async function GET(req: NextRequest): Promise<Response> {
+async function handle(req: NextRequest): Promise<Response> {
   const requestId = randomUUID();
   const startedAt = Date.now();
 
@@ -207,3 +208,5 @@ export async function GET(req: NextRequest): Promise<Response> {
     { requestId },
   );
 }
+
+export const GET = comExecucaoDeRotina("lgpd-sla-watcher", handle);

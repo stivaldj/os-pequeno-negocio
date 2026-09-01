@@ -146,3 +146,44 @@ describe("payload capenga não vira linha meia-boca", () => {
     expect(e).toMatchObject({ type: "location", text: null, media: null });
   });
 });
+
+/**
+ * Coexistência (ADR-0015): três campos que só chegam para número que entrou
+ * por Embedded Signup com o app ainda ativo. Fixtures escritas a partir da
+ * referência dos webhooks da Meta (lida em 01/09/2026), não capturadas —
+ * quando o primeiro número real entrar, trocar pelas capturadas.
+ */
+import type { AppEchoEvent, AppStateSyncEvent, HistoryEvent } from "@/lib/channels/meta/webhook";
+
+describe("coexistência — eco do app (smb_message_echoes)", () => {
+  it("vira app_echo com o número NOSSO, o destinatário e o wamid", () => {
+    const [e] = parseMetaWebhook(REAIS[2]!).filter((x): x is AppEchoEvent => x.kind === "app_echo");
+    expect(e).toMatchObject({
+      kind: "app_echo",
+      wabaId: "2434045433735175",
+      phoneNumberId: "1103328999528818",
+      to: "553198966398",
+      externalId: "wamid.ECO1",
+      type: "text",
+      text: "Bom dia! Aqui é a recepção.",
+    });
+    expect(e!.sentAt.getUTCFullYear()).toBe(2026);
+  });
+});
+
+describe("coexistência — sincronização de contatos (smb_app_state_sync)", () => {
+  it("lista só os contatos ADICIONADOS, com telefone em dígitos e nome", () => {
+    const [e] = parseMetaWebhook(REAIS[3]!).filter((x): x is AppStateSyncEvent => x.kind === "app_state_sync");
+    expect(e!.contacts).toEqual([{ phone: "553198966398", name: "Contato Teste" }]);
+  });
+});
+
+describe("coexistência — histórico (history)", () => {
+  it("cada mensagem sabe se foi nossa ou do contato, com o timestamp original", () => {
+    const [e] = parseMetaWebhook(REAIS[4]!).filter((x): x is HistoryEvent => x.kind === "history");
+    expect(e!.messages).toHaveLength(2);
+    expect(e!.messages[0]).toMatchObject({ direction: "inbound", from: "553198966398", externalId: "wamid.HIST1", text: "quero marcar" });
+    expect(e!.messages[1]).toMatchObject({ direction: "outbound", to: "553198966398", externalId: "wamid.HIST2", text: "claro, qual dia?" });
+    expect(e!.messages[0]!.sentAt.toISOString()).toBe("2026-08-03T12:00:00.000Z");
+  });
+});

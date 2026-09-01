@@ -62,6 +62,7 @@ import { classificarErroDoGoogle } from "@/lib/agenda/google/erros";
 import { doEventoDoGoogle, ehIcalUidNosso } from "@/lib/agenda/google/evento";
 import { listarEventos } from "@/lib/agenda/google/eventos-remotos";
 import { env } from "@/lib/env";
+import { comExecucaoDeRotina } from "@/lib/rotinas/registrar";
 
 export const dynamic = "force-dynamic";
 
@@ -346,10 +347,5 @@ async function executar(req: NextRequest): Promise<Response> {
   return NextResponse.json({ data: resumo });
 }
 
-export async function GET(req: NextRequest): Promise<Response> {
-  return executar(req);
-}
-
-export async function POST(req: NextRequest): Promise<Response> {
-  return executar(req);
-}
+export const GET = comExecucaoDeRotina("agenda-google-sync", executar);
+export const POST = GET;

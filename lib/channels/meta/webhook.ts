@@ -136,7 +136,56 @@ export interface MessageStatusEvent {
   errorTitle: string | null;
 }
 
-export type MetaWebhookEvent = TemplateStatusEvent | MessageStatusEvent | InboundMessageEvent;
+/**
+ * Coexistência (ADR-0015): a recepção respondeu pelo app do WhatsApp Business.
+ * `to` é o contato; `phoneNumberId` é o NOSSO número. Não passa pela janela de
+ * 24h nem é cobrada — mas precisa aparecer na Conversa e calar o Agente.
+ */
+export interface AppEchoEvent {
+  kind: "app_echo";
+  wabaId: string;
+  phoneNumberId: string;
+  externalId: string;
+  to: string;
+  sentAt: Date;
+  type: string;
+  text: string | null;
+}
+
+/** Coexistência: contatos que o app tem e nós ainda não. Só os adicionados. */
+export interface AppStateSyncEvent {
+  kind: "app_state_sync";
+  wabaId: string;
+  phoneNumberId: string;
+  contacts: { phone: string; name: string | null }[];
+}
+
+export interface HistoryMessage {
+  direction: "inbound" | "outbound";
+  externalId: string;
+  from: string;
+  to: string;
+  sentAt: Date;
+  type: string;
+  text: string | null;
+}
+
+/** Coexistência: até 6 meses de conversa do app, em pedaços. */
+export interface HistoryEvent {
+  kind: "history";
+  wabaId: string;
+  phoneNumberId: string;
+  chunk: { phase: number | null; order: number | null; progress: number | null };
+  messages: HistoryMessage[];
+}
+
+export type MetaWebhookEvent =
+  | TemplateStatusEvent
+  | MessageStatusEvent
+  | InboundMessageEvent
+  | AppEchoEvent
+  | AppStateSyncEvent
+  | HistoryEvent;
 
 /**
  * O formato do fio mora em `./envelope.ts`, onde é um schema Zod — e o tipo
@@ -238,6 +287,77 @@ export function parseMetaWebhook(envelope: MetaWebhookEnvelope): MetaWebhookEven
         continue;
       }
 
+      if (change.field === "smb_message_echoes" && Array.isArray(v.message_echoes)) {
+        const meta = (v.metadata ?? {}) as Record<string, unknown>;
+        const phoneNumberId = str(meta.phone_number_id) ?? "";
+        for (const raw of v.message_echoes as Record<string, unknown>[]) {
+          const id = str(raw.id);
+          const to = str(raw.to);
+          if (!id || !to) continue;
+          const tipo = str(raw.type) ?? "unknown";
+          out.push({
+            kind: "app_echo",
+            wabaId,
+            phoneNumberId,
+            externalId: id,
+            to,
+            sentAt: new Date(Number(str(raw.timestamp) ?? "0") * 1000),
+            type: tipo,
+            text: tipo === "text" ? str((raw.text as Record<string, unknown>)?.body) : null,
+          });
+        }
+        continue;
+      }
+      if (change.field === "smb_app_state_sync" && Array.isArray(v.state_sync)) {
+        const meta = (v.metadata ?? {}) as Record<string, unknown>;
+        const contacts: AppStateSyncEvent["contacts"] = [];
+        for (const raw of v.state_sync as Record<string, unknown>[]) {
+          if (str(raw.type) !== "contact" || str(raw.action) === "remove") continue;
+          const contato = (raw.contact ?? {}) as Record<string, unknown>;
+          const phone = (str(contato.phone_number) ?? "").replace(/\D/g, "");
+          if (!phone) continue;
+          contacts.push({ phone, name: str(contato.full_name) ?? str(contato.first_name) });
+        }
+        out.push({ kind: "app_state_sync", wabaId, phoneNumberId: str(meta.phone_number_id) ?? "", contacts });
+        continue;
+      }
+      if (change.field === "history" && Array.isArray(v.history)) {
+        const meta = (v.metadata ?? {}) as Record<string, unknown>;
+        const phoneNumberId = str(meta.phone_number_id) ?? "";
+        const nosso = (str(meta.display_phone_number) ?? "").replace(/\D/g, "");
+        for (const pedaco of v.history as Record<string, unknown>[]) {
+          const pm = (pedaco.metadata ?? {}) as Record<string, unknown>;
+          const messages: HistoryMessage[] = [];
+          for (const thread of (Array.isArray(pedaco.threads) ? pedaco.threads : []) as Record<string, unknown>[]) {
+            const contato = str(thread.id) ?? "";
+            for (const raw of (Array.isArray(thread.messages) ? thread.messages : []) as Record<string, unknown>[]) {
+              const id = str(raw.id);
+              if (!id) continue;
+              const ctx = (raw.history_context ?? {}) as Record<string, unknown>;
+              const fromMe = ctx.from_me === true;
+              const tipo = str(raw.type) ?? "unknown";
+              messages.push({
+                direction: fromMe ? "outbound" : "inbound",
+                externalId: id,
+                from: fromMe ? nosso : (str(raw.from) ?? contato),
+                to: fromMe ? contato : nosso,
+                sentAt: new Date(Number(str(raw.timestamp) ?? "0") * 1000),
+                type: tipo,
+                text: tipo === "text" ? str((raw.text as Record<string, unknown>)?.body) : null,
+              });
+            }
+          }
+          const num = (x: unknown) => (typeof x === "number" ? x : x == null ? null : Number(x));
+          out.push({
+            kind: "history",
+            wabaId,
+            phoneNumberId,
+            chunk: { phase: num(pm.phase), order: num(pm.chunk_order), progress: num(pm.progress) },
+            messages,
+          });
+        }
+        continue;
+      }
       if (change.field === "messages" && Array.isArray(v.statuses)) {
         for (const raw of v.statuses as Record<string, unknown>[]) {
           const id = str(raw.id);

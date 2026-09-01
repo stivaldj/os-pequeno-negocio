@@ -156,6 +156,15 @@ const PROVA_PROPRIA: readonly Excecao[] = [
     razao: "tests/invariants/followup-schema.test.ts — mesmo laço de FOLLOWUP_TABLES.",
   },
   {
+    tabela: "job_runs",
+    razao:
+      "tests/invariants/job-runs-rls.test.ts — tabela de PLATAFORMA " +
+      "(organization_id nulo = instalação inteira, como agent_inbox_items): " +
+      "prova com `countAs` real que usuário autenticado comum lê 0 linhas, " +
+      "`anon` lê 0 ou é barrado, e só platform admin lê. Não cabe em TABLES " +
+      "porque não há duas orgs a isolar — não há org nenhuma na linha.",
+  },
+  {
     tabela: "user_organizations",
     razao:
       "tests/invariants/gov-1b-team-manager-read.test.ts (\"cross-org: " +

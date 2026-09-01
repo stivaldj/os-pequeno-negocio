@@ -18,7 +18,9 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { CHANNEL_PROVIDER_ZERNIO } from "./capabilities";
+import { CHANNEL_PROVIDER_FAKE, CHANNEL_PROVIDER_ZERNIO } from "./capabilities";
+import { lerEnvelopeFake } from "./fake/envelope";
+import { ingestFakeInbound } from "./fake/ingest";
 import { sincronizarSaudeDaConexao } from "./health";
 import {
   atualizarEspelhoDoTemplate,
@@ -70,7 +72,7 @@ export type InboundWebhookOutcome =
  * trabalho — e respondido sem nomear provider do lado de fora.
  */
 export function acceptsInboundWebhook(provider: string): boolean {
-  return provider === CHANNEL_PROVIDER_ZERNIO;
+  return provider === CHANNEL_PROVIDER_ZERNIO || provider === CHANNEL_PROVIDER_FAKE;
 }
 
 export async function handleInboundWebhook(
@@ -82,6 +84,8 @@ export async function handleInboundWebhook(
   switch (provider) {
     case CHANNEL_PROVIDER_ZERNIO:
       return zernioInbound(admin, input);
+    case CHANNEL_PROVIDER_FAKE:
+      return fakeInbound(admin, input);
     default:
       // Token de um canal que não entra por aqui. É configuração trocada, não
       // ataque — mas processar seria ler o payload com o parser errado.
@@ -192,6 +196,40 @@ async function zernioInbound(
     organizationId: input.session.organization_id,
     channelSessionId: input.session.id,
     payload,
+  });
+  return { ok: true, body: { ...r } };
+}
+
+/**
+ * O fake não assina: o segredo é o token do caminho, que a rota genérica já
+ * verificou antes de chegar aqui. O que se valida é o contrato do corpo.
+ */
+async function fakeInbound(
+  admin: SupabaseClient,
+  input: InboundWebhookInput,
+): Promise<InboundWebhookOutcome> {
+  const leitura = lerEnvelopeFake(input.rawBody);
+  if (!leitura.ok) {
+    if (leitura.motivo === "json_invalido") {
+      return { ok: false, code: "invalid_json", message: "invalid_json" };
+    }
+    return {
+      ok: false,
+      code: "contrato_violado",
+      message: `payload fora do contrato do canal: ${leitura.campos.join(", ")}`,
+    };
+  }
+  const corpo = leitura.envelope;
+  const r = await ingestFakeInbound(admin, {
+    organizationId: input.session.organization_id,
+    channelSessionId: input.session.id,
+    evento: {
+      from: corpo.from,
+      text: corpo.text,
+      externalId: corpo.external_id,
+      sentAt: corpo.sent_at ? new Date(corpo.sent_at) : new Date(),
+      profileName: corpo.profile_name ?? null,
+    },
   });
   return { ok: true, body: { ...r } };
 }

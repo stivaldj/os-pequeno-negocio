@@ -20,12 +20,13 @@ import { LOTE_PADRAO, podarArquivoDeWebhooks } from "@/lib/channels/retencao-do-
 import { podarHistoricoDeCaptacao } from "@/lib/webhooks/retencao-da-captacao";
 import { env } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { comExecucaoDeRotina } from "@/lib/rotinas/registrar";
 
 export const dynamic = "force-dynamic";
 
 const LOTE_MAXIMO = 5_000;
 
-export async function GET(req: NextRequest): Promise<Response> {
+async function handle(req: NextRequest): Promise<Response> {
   const requestId = randomUUID();
 
   const auth = req.headers.get("authorization") ?? "";
@@ -73,3 +74,5 @@ export async function GET(req: NextRequest): Promise<Response> {
 
   return ok({ ...resultado, captacao }, { requestId });
 }
+
+export const GET = comExecucaoDeRotina("webhook-log-retention", handle);

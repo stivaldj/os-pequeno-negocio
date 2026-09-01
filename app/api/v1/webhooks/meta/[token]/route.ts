@@ -23,6 +23,9 @@ import { fail } from "@/lib/api/wrappers";
 import { lerEnvelopeMeta } from "@/lib/channels/meta/envelope";
 import { parseMetaWebhook, verificationChallenge, verifyMetaSignature } from "@/lib/channels/meta/webhook";
 import { ingestMetaInbound } from "@/lib/channels/meta/ingest";
+import { ingerirEcoDoApp, silencioDaConta } from "@/lib/channels/meta/coexistencia/eco";
+import { sincronizarContatosDoApp } from "@/lib/channels/meta/coexistencia/estado";
+import { importarHistoricoDoApp } from "@/lib/channels/meta/coexistencia/historico";
 import { metaSessionByWebhookToken } from "@/lib/channels/meta/session";
 import { logger } from "@/lib/logger";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -133,6 +136,24 @@ export async function POST(req: NextRequest, ctx: RouteCtx): Promise<NextRespons
       continue;
     }
 
+    // Coexistência (ADR-0015): o app do telefone continua vivo no mesmo número.
+    if (e.kind === "app_echo") {
+      const sessao = { id: session.id, organizationId: session.organizationId };
+      const silencioMinutos = await silencioDaConta(admin, session.organizationId);
+      const r = await ingerirEcoDoApp(admin, e, sessao, { silencioMinutos });
+      desfechos.push(`eco:${r.status}`);
+      continue;
+    }
+    if (e.kind === "app_state_sync") {
+      const r = await sincronizarContatosDoApp(admin, e, { organizationId: session.organizationId });
+      desfechos.push(`contatos:${r.criados}+${r.existentes}`);
+      continue;
+    }
+    if (e.kind === "history") {
+      const r = await importarHistoricoDoApp(admin, e, { id: session.id, organizationId: session.organizationId });
+      desfechos.push(`historico:${r.importadas}/${r.duplicadas}`);
+      continue;
+    }
     if (e.kind === "template_status") {
       await admin
         .from("meta_templates")
