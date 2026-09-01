@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { updateTenant } from "@/app/actions/settings/updateTenant";
 import { useT } from "@/hooks/i18n/useT";
 import { tenantSchema, type Locale, type TenantInput } from "@/lib/schemas/settings";
@@ -99,6 +100,19 @@ export function TenantForm({ initial }: Props) {
               value={form.dpo_email ?? ""}
               onChange={(e) => set("dpo_email", e.target.value || null)}
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="clinica_redacao">{t("Conta do setor de saúde")}</Label>
+            <div className="flex items-center gap-3">
+              <Switch
+                id="clinica_redacao"
+                checked={form.clinica_redacao}
+                onCheckedChange={(v) => set("clinica_redacao", v)}
+              />
+              <p className="text-xs text-muted-foreground">
+                {t("Redigir Conteúdo Clínico e passar para humano (ADR-0004)")}
+              </p>
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="timezone">{t("Fuso horário")}</Label>

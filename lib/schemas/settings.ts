@@ -100,6 +100,13 @@ export const tenantSchema = z.object({
     .optional()
     .or(z.literal("").transform(() => null)),
   lost_reasons_extra: z.array(z.string().min(1).max(80)).max(50).default([]),
+  /**
+   * "Conta do setor de saúde": liga `lib/clinica/` — redação de Conteúdo
+   * Clínico antes do insert e Passagem a humano (ADR-0004). Persistido em
+   * `settings.clinica.redacao_clinica` por `lib/clinica/config.ts`. Default
+   * `false`: Conta comum não redige nada.
+   */
+  clinica_redacao: z.boolean().default(false),
 });
 export type TenantInput = z.infer<typeof tenantSchema>;
 

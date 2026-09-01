@@ -204,6 +204,10 @@ export const DICIONARIO: Traducoes = {
   "Nome de exibição": { es: "Nombre para mostrar" },
   "Razão social": { es: "Razón social" },
   "DPO email": { es: "Email del DPO" },
+  "Conta do setor de saúde": { es: "Cuenta del sector salud" },
+  "Redigir Conteúdo Clínico e passar para humano (ADR-0004)": {
+    es: "Redactar Contenido Clínico y derivar a un humano (ADR-0004)",
+  },
   "Retenção de mídia (dias)": { es: "Retención de medios (días)" },
   "URL política de privacidade": { es: "URL de la política de privacidad" },
   "Motivos de perda extras (separados por vírgula)": {
