@@ -84,5 +84,144 @@
         ]
       }
     ]
+  },
+  {
+    "object": "whatsapp_business_account",
+    "entry": [
+      {
+        "id": "2434045433735175",
+        "changes": [
+          {
+            "field": "smb_message_echoes",
+            "value": {
+              "messaging_product": "whatsapp",
+              "metadata": {
+                "display_phone_number": "556540421817",
+                "phone_number_id": "1103328999528818"
+              },
+              "message_echoes": [
+                {
+                  "from": "556540421817",
+                  "to": "553198966398",
+                  "id": "wamid.ECO1",
+                  "timestamp": "1788350400",
+                  "type": "text",
+                  "text": {
+                    "body": "Bom dia! Aqui é a recepção."
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "object": "whatsapp_business_account",
+    "entry": [
+      {
+        "id": "2434045433735175",
+        "changes": [
+          {
+            "field": "smb_app_state_sync",
+            "value": {
+              "messaging_product": "whatsapp",
+              "metadata": {
+                "display_phone_number": "556540421817",
+                "phone_number_id": "1103328999528818"
+              },
+              "state_sync": [
+                {
+                  "type": "contact",
+                  "contact": {
+                    "phone_number": "+553198966398",
+                    "full_name": "Contato Teste",
+                    "first_name": "Contato"
+                  },
+                  "metadata": {
+                    "timestamp": "1788350400"
+                  },
+                  "action": "add"
+                },
+                {
+                  "type": "contact",
+                  "contact": {
+                    "phone_number": "+5565999990002",
+                    "full_name": "Removido"
+                  },
+                  "metadata": {
+                    "timestamp": "1788350401"
+                  },
+                  "action": "remove"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "object": "whatsapp_business_account",
+    "entry": [
+      {
+        "id": "2434045433735175",
+        "changes": [
+          {
+            "field": "history",
+            "value": {
+              "messaging_product": "whatsapp",
+              "metadata": {
+                "display_phone_number": "556540421817",
+                "phone_number_id": "1103328999528818"
+              },
+              "history": [
+                {
+                  "metadata": {
+                    "phase": 0,
+                    "chunk_order": 1,
+                    "progress": 100
+                  },
+                  "threads": [
+                    {
+                      "id": "553198966398",
+                      "messages": [
+                        {
+                          "from": "553198966398",
+                          "id": "wamid.HIST1",
+                          "timestamp": "1785758400",
+                          "type": "text",
+                          "text": {
+                            "body": "quero marcar"
+                          },
+                          "history_context": {
+                            "status": "delivered",
+                            "from_me": false
+                          }
+                        },
+                        {
+                          "from": "556540421817",
+                          "id": "wamid.HIST2",
+                          "timestamp": "1785758460",
+                          "type": "text",
+                          "text": {
+                            "body": "claro, qual dia?"
+                          },
+                          "history_context": {
+                            "status": "read",
+                            "from_me": true
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
   }
 ]
