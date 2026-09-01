@@ -19,9 +19,9 @@ Atendimento e venda por WhatsApp · CRM preenchido pelo Agente · gestão e rela
 
 **Fora da v1, de propósito:** Open Finance · saúde, treino, dieta e medicação · prospecção fria · app nativo · integração com ERP/PDV.
 
-## MVP antes da v1
+## O primeiro corte
 
-O escopo acima é o destino da v1, não o primeiro corte de código. O MVP é bem mais estreito — uma Conta, um Agente no WhatsApp, Passagem para a Caixa de Entrada e um painel mínimo — sem CRM, sem anúncios e sem módulo financeiro. Ver ADR-0011.
+Uma Conta só — a Clínica Humana — mas a frase de destino inteira: atendimento, agenda, anúncios do Google com Sobra por Real, caixa por OFX e o relatório das 8h. O fork do DeskcommCRM entregou a camada de atendimento e CRM; o que se constrói são os módulos próprios. Ver Spec 0003 em `docs/spec/` e ADR-0011 emendada.
 
 ## Cliente zero
 

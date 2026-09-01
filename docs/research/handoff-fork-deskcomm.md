@@ -2,6 +2,8 @@
 
 Escrito em 01/09/2026 numa sessão de chat (sem acesso ao Mac). A próxima sessão roda no Cowork ou Claude Code, no Mac do José, com git no terminal.
 
+> **Atualizado em 01/09/2026:** as fases abaixo foram reescritas pela Spec 0003 (`docs/spec/0003-relatorio-das-8h.md`). Mudanças: transporte vira Tech Provider da Meta com Coexistência (Kapso só como ponte, ADR-0015); anúncios são Google Ads com Página de Captura (ADR-0016), não Meta Ads; receita nasce na agenda do dia (ADR-0017); o Agente de Anúncios tem níveis de autonomia (ADR-0018); rotinas ganham `job_runs` no scheduler herdado. As issues 19 a 25 são a fonte atual de cada fase.
+
 ## Contexto em 5 linhas
 
 1. Produto: "funcionário perfeito" — agente de IA no WhatsApp que atende, qualifica, vende, agenda, preenche o CRM e manda relatório das 8h com gasto/retorno de ads e caixa. Frase de destino e 10 ADRs já estão em `~/CODING/newstuff/os-pequeno-negocio` (remoto privado `github.com/stivaldj/os-pequeno-negocio`). Cliente zero: Clínica Humana.

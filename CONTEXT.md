@@ -85,7 +85,7 @@ A sequência de estados por onde uma Oportunidade passa até virar Venda Confirm
 _Evitar_: kanban, coluna, status
 
 **Venda Confirmada** (`ConfirmedSale`):
-Uma Oportunidade que o Dono confirmou como vendida. Só o Dono confirma — o Agente propõe.
+Uma Oportunidade que virou dinheiro. Em Conta de saúde, é a consulta que a recepção marcou como "compareceu" com o valor pago na agenda do dia (ADR-0017). O Agente nunca confirma; ele propõe.
 _Evitar_: conversão, fechamento
 
 **Margem Declarada** (`DeclaredMargin`):
@@ -105,7 +105,7 @@ _Evitar_: horário de funcionamento, disponibilidade, agenda
 ### Dinheiro
 
 **Verba** (`AdSpend`):
-Quanto foi gasto em anúncio num período, lido das APIs de anúncio.
+Quanto foi gasto em anúncio num período, lido das APIs de anúncio. Na Clínica Humana vem do Google Ads, por campanha e dia.
 _Evitar_: investimento, budget, custo de mídia
 
 **Sobra por Real** (`NetReturnPerReal`):
@@ -120,6 +120,22 @@ _Evitar_: transações, lançamentos bancários
 Compromisso financeiro com data. Gera Lembrete e aparece no Relatório Diário.
 _Evitar_: boleto, cobrança, fatura
 
+**Página de Captura** (`ClickCapturePage`):
+A página própria para onde o anúncio aponta. Grava o clique, gera o Código de Clique e abre o WhatsApp (ADR-0016).
+_Evitar_: landing page, redirect
+
+**Código de Clique** (`ClickCode`):
+Código curto pré-preenchido na primeira mensagem do Contato, que liga a Conversa ao clique e à campanha. Consumido uma vez; ausente ou inválido, o Contato entra sem atribuição.
+_Evitar_: gclid, token, tracking
+
+**Agente de Anúncios** (`AdsAgent`):
+A rotina diária que lê Verba, Conversas e Vendas Confirmadas por campanha e age no Google Ads dentro do Nível de Autonomia da Conta (ADR-0018).
+_Evitar_: gestor de tráfego, otimizador
+
+**Nível de Autonomia** (`AutonomyLevel`):
+Quanto o Agente de Anúncios pode fazer sozinho: observar e propor, ajustar dentro de limites, ou criar e editar. O Dono liga; começa no primeiro.
+_Evitar_: permissão, modo
+
 ### Rotina
 
 **Relatório Diário** (`DailyBriefing`):
@@ -131,7 +147,7 @@ Mensagem disparada por data — vencimento, retorno de cliente, follow-up de Opo
 _Evitar_: notificação, alerta
 
 **Execução de Rotina** (`JobRun`):
-O registro de que um trabalho agendado rodou. Existe para que a ausência dele seja detectável: falha silenciosa vira falha barulhenta.
+O registro de que um trabalho agendado rodou. Existe para que a ausência dele seja detectável: falha silenciosa vira falha barulhenta. Tabela `job_runs`, gravada por toda rotina do scheduler (ADR-0007, emendada).
 _Evitar_: job, task, cron
 
 **Raio-X** (`Audit`):
@@ -139,5 +155,5 @@ O diagnóstico pago que abre a relação com um cliente novo — marca, redes, a
 _Evitar_: auditoria, diagnóstico, assessment
 
 **Embarque** (`Onboarding`):
-O processo de colocar uma Conta no ar: conectar Número por Coexistência (ADR-0014), ligar Ferramentas, declarar Margens, vincular contas de anúncio. No MVP para na conexão do Número e no cadastro de Profissionais, serviços e Expediente (ADR-0011).
+O processo de colocar uma Conta no ar: conectar Número por Coexistência (ADR-0014), ligar Ferramentas, declarar Margens, vincular contas de anúncio. O Número entra por Embedded Signup em Coexistência, com a LAVRA como Tech Provider (ADR-0015).
 _Evitar_: setup, implantação, ativação
