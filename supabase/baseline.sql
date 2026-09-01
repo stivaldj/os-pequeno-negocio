@@ -17172,11 +17172,16 @@ create index if not exists idx_job_runs_job_name_started_at
 
 alter table public.job_runs enable row level security;
 
+-- Só LEITURA, e só para admin de plataforma. Quem escreve é o service role
+-- (o helper de `lib/rotinas/registrar.ts`), que bypassa RLS — nenhum usuário
+-- autenticado grava execução de rotina. Não é policy `ALL` de propósito:
+-- `tests/invariants/rbac-config-ia-canais.test.ts` reprova tabela nova com
+-- `ALL` sem `fn_role_at_least`, e aqui a resposta certa é não haver escrita.
 drop policy if exists job_runs_platform_admin_all on public.job_runs;
-create policy job_runs_platform_admin_all on public.job_runs
-  for all
-  using (public.fn_is_platform_admin())
-  with check (public.fn_is_platform_admin());
+drop policy if exists job_runs_platform_admin_select on public.job_runs;
+create policy job_runs_platform_admin_select on public.job_runs
+  for select to authenticated
+  using (public.fn_is_platform_admin());
 
 -- O ALTER DEFAULT PRIVILEGES do corpo do baseline dá CRUD a `anon` em toda
 -- tabela nova. A anon key vai para o browser.
