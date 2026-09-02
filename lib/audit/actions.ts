@@ -414,6 +414,14 @@ export const AUDIT_ACTIONS = [
   "ads.spend_synced",
   /** A leitura da API do Google Ads falhou para uma Conta; `ad_accounts.last_error` tem o motivo. */
   "ads.sync_falhou",
+  /** O Agente de Anúncios registrou uma proposta para o Dono (ADR-0018). */
+  "ads.proposta_criada",
+  /** Ferramenta de escrita do Agente de Anúncios recusada pelo Nível de Autonomia em vigor. */
+  "ads.escrita_recusada",
+  /** Rodada diária do Agente de Anúncios concluída (propostas, recusas, nível). */
+  "ads.agent_rodou",
+  /** Rodada pulada: orçamento de IA da Conta estourado. */
+  "ads.agent_pulado",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */
