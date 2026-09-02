@@ -9,7 +9,9 @@
  * Slug desconhecido ou inativo devolve `destino: null` — a rota responde 404
  * sem dizer por quê.
  */
+import { randomInt } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { frasePreenchida, gerarCodigoDeClique } from "./codigo";
 
@@ -77,4 +79,32 @@ export async function registrarClique(admin: SupabaseClient, clique: CliqueReceb
     }
   }
   return { destino: null, codigo: null };
+}
+
+// ── Slug e URL pública do link de captura (usados pela API `POST /api/v1/ads/links`) ──
+
+const ALFABETO_DO_SLUG = "abcdefghijklmnopqrstuvwxyz0123456789";
+
+export function sufixoAleatorio(tamanho = 4): string {
+  let s = "";
+  for (let i = 0; i < tamanho; i++) s += ALFABETO_DO_SLUG[randomInt(ALFABETO_DO_SLUG.length)];
+  return s;
+}
+
+/** Slug de `campaign_name` + sufixo, no vocabulário que o CHECK de `ad_capture_links.slug` aceita. */
+export function slugDeCaptura(campaignName: string, sufixo: string = sufixoAleatorio()): string {
+  const base =
+    campaignName
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40)
+      .replace(/-+$/g, "") || "campanha";
+  return `${base}-${sufixo}`;
+}
+
+export function urlDeCaptura(slug: string): string {
+  return `${env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, "")}/ir/${slug}`;
 }

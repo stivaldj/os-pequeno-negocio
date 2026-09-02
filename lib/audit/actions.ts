@@ -422,6 +422,12 @@ export const AUDIT_ACTIONS = [
   "ads.agent_rodou",
   /** Rodada pulada: orçamento de IA da Conta estourado. */
   "ads.agent_pulado",
+  // Anúncios (Fase 5, ADR-0016/0018): o gerente configurou a Conta do Google
+  // Ads, criou um link de captura, ou decidiu (aprovou/recusou) uma proposta
+  // do agente de anúncios. Uma linha por mutação, com o ator.
+  "ads.account_updated",
+  "ads.link_created",
+  "ads.proposal_decided",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */

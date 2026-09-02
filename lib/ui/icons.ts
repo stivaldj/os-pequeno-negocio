@@ -132,4 +132,6 @@ export {
   GoogleLogo,
   MapPin,
   ArrowsOutSimple,
+  // anúncios (Fase 5): a porta da tela de Anúncios no registro de navegação
+  Megaphone,
 } from "@phosphor-icons/react/dist/ssr";
