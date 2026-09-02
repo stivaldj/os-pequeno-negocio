@@ -38,6 +38,7 @@
  * um efeito faltando por uma tempestade de reentregas. Cada passo falha para
  * dentro, com log, e o seguinte roda mesmo assim.
  */
+import { consumirCodigoDeClique } from "@/lib/ads/atribuicao";
 import { audit } from "@/lib/audit";
 import { garantirLeadDaConversa } from "@/lib/leads/nascimento-do-lead";
 import { passarPorConteudoClinico } from "@/lib/clinica/passagem";
@@ -97,6 +98,11 @@ export interface EntradaDeMensagem {
    * humano antes de qualquer despacho do Agente.
    */
   redigido?: { motivo: string } | null;
+  /**
+   * Código de Clique (ADR-0016), extraído pelo preparador do texto CRU. Chega
+   * mesmo quando a mensagem foi redigida: o código não é Conteúdo Clínico.
+   */
+  codigoDeClique?: string | null;
   /** Nome exibido pelo canal, quando houver. Serve para batizar o card novo. */
   nomeDoContato: string | null;
   /** Correlaciona a linha de auditoria com a request que a originou. */
@@ -122,6 +128,10 @@ export async function aplicarEfeitosPosEntrada(
 ): Promise<void> {
   await aplicarOptOut(admin, entrada);
   await abrirDemanda(admin, entrada);
+  // Atribuição pelo Código de Clique (ADR-0016) vem ANTES do desvio por
+  // redação: a primeira mensagem de quem veio do anúncio pode ser clínica, e
+  // a atribuição é o dado que explica por que essa conversa existe.
+  await consumirCliqueDeAnuncio(admin, entrada);
   // A resposta do lead avança o follow-up AQUI. O despacho do agente (LLM)
   // vem depois: no Hobby ele estoura o tempo da request e o próximo texto
   // do fluxo ficava esperando o relógio.
@@ -230,6 +240,37 @@ async function abrirDemanda(admin: Admin, entrada: EntradaDeMensagem): Promise<v
       conversation_id: entrada.conversationId,
       origem: entrada.origem,
       error: err instanceof Error ? err.message.slice(0, 120) : "unknown",
+    });
+  }
+}
+
+/**
+ * 2½ · O clique que trouxe a pessoa vira atribuição.
+ *
+ * Só quando o preparador achou um código no texto. Código desconhecido ou
+ * reusado é desfecho normal (log em `info`), não erro; e nenhum erro daqui
+ * sobe — a mensagem já está gravada.
+ */
+async function consumirCliqueDeAnuncio(admin: Admin, entrada: EntradaDeMensagem): Promise<void> {
+  if (!entrada.codigoDeClique) return;
+  try {
+    const r = await consumirCodigoDeClique(admin, {
+      organizationId: entrada.organizationId,
+      contactId: entrada.contactId,
+      codigo: entrada.codigoDeClique,
+    });
+    logger.info("pos-entrada: código de clique lido", {
+      organization_id: entrada.organizationId,
+      contact_id: entrada.contactId,
+      origem: entrada.origem,
+      status: r.status,
+    });
+  } catch (err) {
+    logger.error("pos-entrada: consumo do código de clique falhou (a mensagem entra assim mesmo)", {
+      organization_id: entrada.organizationId,
+      contact_id: entrada.contactId,
+      origem: entrada.origem,
+      detail: err instanceof Error ? err.message.slice(0, 160) : "desconhecido",
     });
   }
 }

@@ -684,6 +684,7 @@ async function handleInbound(
     channelSessionId: session.id,
     texto: preparada.textoParaEfeitos,
     redigido: preparada.redigido,
+    codigoDeClique: preparada.codigoDeClique,
     nomeDoContato: notifyNameOf(p),
     requestId,
     origem: "waha_webhook",

@@ -13,10 +13,13 @@
  * ele vem embutido na própria mensagem. Procure por `extrairAtribuicao` para
  * achar os dois; citar o caminho aqui é justamente o que o invariante proíbe.
  *
- * Não há extrator de Google Ads: não existe mecanismo nativo equivalente para
- * WhatsApp. Aquele caminho depende de uma landing page que capture o `gclid` e
- * embuta um código de rastreio na mensagem pré-preenchida, e essa LP ainda não
- * existe.
+ * O Google Ads não tem mecanismo nativo equivalente para WhatsApp. O caminho
+ * dele é o Código de Clique (ADR-0016): a Página de Captura recebe o clique
+ * com o `gclid`, embute um código na frase pré-preenchida, e o preparador de
+ * entrada lê o código da primeira mensagem — `lib/ads/codigo.ts` extrai,
+ * `lib/ads/atribuicao.ts` consome e chama `estamparAtribuicaoDoContato` daqui,
+ * com `plataforma: "google_ads"`. Não é transporte, é módulo próprio: por
+ * isso mora em `lib/ads/`, não numa pasta de canal.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
