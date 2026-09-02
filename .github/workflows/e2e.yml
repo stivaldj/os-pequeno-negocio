@@ -74,12 +74,34 @@ jobs:
   # matrix são máquinas diferentes, com IPs diferentes, então a separação
   # deixa de depender de reiniciar o processo.
   #
-  # O teto de 30 min FICA. Ele é o que denuncia a suíte crescendo de novo;
-  # subi-lo seria trocar um vermelho honesto por um CI que demora mais a cada
-  # mês sem ninguém perceber.
+  # REBALANCEADO EM 2026-09-01, e o teto subiu de 30 para 40. Medido no run
+  # 33541320639 (main, último verde das duas partes): parte 2 = 22,5 min de
+  # teste + 7,1 min de setup = 29m50s — passou com 10 segundos de folga. No
+  # mesmo dia o PR #27 (run 33552105910) foi CANCELADO aos 30 min com 102 de
+  # 133 testes rodados e nenhum vermelho. A parte 1 fazia 11,0 min de teste e
+  # fechava em 18,6 min: o desequilíbrio era 2:1.
+  #
+  # Quatro specs saíram da PARTE_2 para a PARTE_1 (`navegacao`,
+  # `agenda-kit-visual`, `capacidades-do-agente`, `historico-de-captacao`),
+  # ≈ 6,4 min estimados. ESTIMADOS, não medidos por spec: o reporter era `dot`,
+  # que só carimba hora quando algum log interrompe a linha de progresso, então
+  # a duração por spec foi interpolada entre esses carimbos pela ordem
+  # alfabética e pelo número de testes de cada arquivo. O `--reporter=list` no
+  # passo de teste existe para que o próximo rebalanceamento leia a duração de
+  # cada spec no log em vez de estimar. Alvo: ≈ 16–17 min de teste por parte,
+  # ≈ 24 min por job — o setup de 7 min não some, e 20–22 min só se alcança
+  # cortando teste ou setup, não redistribuindo.
+  #
+  # Sobre o teto: a versão anterior deste bloco dizia que subi-lo "trocaria um
+  # vermelho honesto por um CI que demora mais a cada mês". O que aconteceu foi
+  # o contrário — a `main` bateu no teto por 10 s, e um PR sem teste vermelho
+  # foi cancelado. Cancelamento por teto não é vermelho honesto: não diz qual
+  # spec cresceu, e o time reexecuta em vez de olhar. 40 min é margem para o
+  # rebalanceamento acima errar em alguns minutos; a régua de crescimento
+  # passa a ser a duração por spec no log, que agora existe.
   e2e-parte:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     strategy:
       # Sem fail-fast: se a parte 1 quebrar, ainda quero saber se a 2 também.
       # Com ele ligado, o primeiro vermelho esconde o outro e o conserto vira
@@ -178,6 +200,8 @@ jobs:
         agenda-tela-do-produto.spec.ts
         notificacoes-diz-o-que-falta.spec.ts
         relogio-http-cron-externo.spec.ts
+        navegacao.spec.ts agenda-kit-visual.spec.ts
+        capacidades-do-agente.spec.ts historico-de-captacao.spec.ts
       # ⚠️ A ORDEM DESTA LISTA NÃO DECIDE A ORDEM DE EXECUÇÃO. O Playwright
       # ordena os arquivos por CAMINHO, não pela ordem em que são passados na
       # linha de comando. Medido no run 31838253496: `marca-logo.spec.ts` estava
@@ -242,27 +266,33 @@ jobs:
       #
       # Se um dia uma spec de follow-up entrar na PARTE_1 com nome depois de
       # `relogio-`, é aqui que se olha: ou ela vai para a PARTE_2, ou esta vai.
+      #
+      # `navegacao`, `agenda-kit-visual`, `capacidades-do-agente` e
+      # `historico-de-captacao` vieram da PARTE_2 em 2026-09-01 (ver o bloco do
+      # job, acima). Foram escolhidas por serem as mais longas que NÃO carregam
+      # dependência de vizinhança: as duas primeiras só fazem login e medem
+      # tela; as outras duas rodam o próprio seed no `beforeAll`, e o de
+      # capacidades já era semeado nas duas partes pelo passo "Semear as
+      # fixtures". Nenhuma cria organização (o que mexeria com a precondição
+      # de tenant puro de `navegacao`) nem toca follow-up depois de `relogio-`.
       SPECS_PARTE_2: >-
         agente-marca-consulta.spec.ts agenda-marcar-pela-tela.spec.ts agenda-remarcar-e-cancelar.spec.ts
         agenda-tipos-de-agendamento.spec.ts agenda-grade-interativa.spec.ts
         agente-novo-e-uso.spec.ts agente-organiza-operacao.spec.ts
         central-de-avisos-capacidades.spec.ts escalacao-ciclo.spec.ts
-        navegacao.spec.ts olhar-telas-do-epico.spec.ts pipelines-gestao.spec.ts
+        olhar-telas-do-epico.spec.ts pipelines-gestao.spec.ts
         qa-selo-no-funil-usado.spec.ts
         qa-telas-descobertas-w4.spec.ts retorno-anti-morte.spec.ts
         followup-builder.spec.ts followup-queue.spec.ts
         distribuicao-atendimento.spec.ts followup-journey.spec.ts
         webhooks.spec.ts
-        capacidades-do-agente.spec.ts
         escopo-de-funil-do-agente.spec.ts
         followup-dossie.spec.ts followup-tempo-adaptativo.spec.ts
         gatilho-de-etapa.spec.ts gatilho-de-caso.spec.ts
         marca-logo.spec.ts
-        historico-de-captacao.spec.ts
         automacao-diz-a-verdade.spec.ts
         inbox-quem-manda.spec.ts
         acervo-de-conhecimento.spec.ts
-        agenda-kit-visual.spec.ts
         agenda-conectar-google.spec.ts
         agenda-painel-cabe-na-tela.spec.ts
         agenda-ver-na-agenda.spec.ts
@@ -639,7 +669,16 @@ jobs:
           # o playwright rodar a suíte INTEIRA (ou nenhuma) e o job ficaria
           # verde medindo outra coisa.
           [ -n "$LISTA" ] || { echo "::error::lista da parte ${{ matrix.parte }} vazia"; exit 1; }
-          pnpm exec playwright test --workers=1 $LISTA
+          # `--reporter=list`, não o `dot` que o Playwright escolhe sozinho em
+          # CI: o `dot` só carimba hora quando algum log interrompe a linha, e
+          # o rebalanceamento de 2026-09-01 teve de ESTIMAR a duração de cada
+          # spec por interpolação. Com `list`, cada teste sai com a sua
+          # duração e o próximo ajuste das listas lê em vez de adivinhar.
+          # A flag vem DEPOIS de `$LISTA` porque
+          # `tests/unit/e2e-cobertura-completa.test.ts` cobra a forma literal
+          # `playwright test --workers=1 $LISTA`; o CLI aceita opção após os
+          # argumentos.
+          pnpm exec playwright test --workers=1 $LISTA --reporter=list
         env:
           # Só o que NÃO vem do `.env.e2e`: isto é ajuste de CI, não config do
           # produto. CI = 1 IP para todos os specs, e o teto de produção
@@ -670,10 +709,16 @@ jobs:
     if: always()
     needs: [e2e-parte]
     runs-on: ubuntu-latest
-    # Nenhuma permissão: este job só lê o resultado de `needs` e escreve o
-    # summary. Sem o bloco, o token herdaria o default do REPOSITÓRIO, que vive
-    # fora do repo e muda num clique.
-    permissions: {}
+    # Só `contents: read`, e ele é NECESSÁRIO: o `actions/checkout` abaixo lê
+    # o próprio workflow para contar as listas, e este repositório é PRIVADO —
+    # com `permissions: {}` o fetch respondia "Repository not found" e o passo
+    # de summary morria em `ls tests/e2e`. Medido nos runs 33541320639 (main,
+    # partes verdes) e 33552105910 (PR #27): o agregador ficou vermelho pelo
+    # checkout, não pelo resultado das partes. No upstream, que é
+    # público, o bloco vazio funcionava por acidente. Nada além de leitura:
+    # o job só lê o resultado de `needs` e escreve o summary.
+    permissions:
+      contents: read
     steps:
       - name: Falhar se qualquer parte não passou
         run: |
