@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import { showApiError } from "@/components/feedback/ApiErrorToast";
 import { Button } from "@/components/ui/button";
+import { centavosDe, percentualDe, pontosBaseDe, reaisDe } from "@/lib/agenda/dinheiro";
 import { LOCAIS_DE_ATENDIMENTO } from "@/lib/agenda/locais";
 import { apiClient } from "@/lib/api/client";
 
@@ -23,6 +24,9 @@ export interface TipoRow {
   default_owner_user_id: string | null;
   requires_confirmation: boolean;
   is_active: boolean;
+  /** ADR-0017: centavos e pontos-base (6000 = 60%). Nulo = o Dono não cadastrou. */
+  price_cents: number | null;
+  margin_bps: number | null;
 }
 
 /**
@@ -60,6 +64,9 @@ interface Rascunho {
   duration_minutes: number;
   location_kind: string;
   default_owner_user_id: string;
+  /** Como está no campo: reais e %. A conversão acontece só no envio (`lib/agenda/dinheiro`). */
+  preco: string;
+  margem: string;
 }
 
 const VAZIO: Rascunho = {
@@ -68,6 +75,8 @@ const VAZIO: Rascunho = {
   duration_minutes: 30,
   location_kind: "in_person",
   default_owner_user_id: "",
+  preco: "",
+  margem: "",
 };
 
 export function TiposDeAgendamentoClient({
@@ -135,6 +144,8 @@ export function TiposDeAgendamentoClient({
               className="grid gap-3 rounded-lg border border-border bg-surface p-4 sm:grid-cols-2"
               onSubmit={async (e) => {
                 e.preventDefault();
+                const precoCents = centavosDe(rascunho.preco);
+                const margemBps = pontosBaseDe(rascunho.margem);
                 const feito = await comErro(
                   () =>
                     apiClient.post("/api/v1/agenda/tipos", {
@@ -145,6 +156,9 @@ export function TiposDeAgendamentoClient({
                       ...(rascunho.default_owner_user_id
                         ? { default_owner_user_id: rascunho.default_owner_user_id }
                         : {}),
+                      // ADR-0017: em branco NÃO vai — dado faltante não é R$ 0.
+                      ...(precoCents !== undefined ? { price_cents: precoCents } : {}),
+                      ...(margemBps !== undefined ? { margin_bps: margemBps } : {}),
                     }),
                   t("Tipo de agendamento criado."),
                 );
@@ -209,6 +223,35 @@ export function TiposDeAgendamentoClient({
                     </option>
                   ))}
                 </select>
+              </label>
+              <label className="flex flex-col gap-1 text-xs font-medium text-text-muted">
+                {t("Preço (R$)")}
+                <input
+                  data-testid="novo-tipo-preco"
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  step="0.01"
+                  value={rascunho.preco}
+                  onChange={(e) => setRascunho((r) => ({ ...r, preco: e.target.value }))}
+                  className="rounded-md border border-border bg-surface-elevated p-2 text-sm text-text outline-none focus:border-border-strong"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs font-medium text-text-muted">
+                {/* ADR-0017: a Margem Declarada é do Dono. Vai ao relatório das
+                    8h e nunca ao modelo — a API já garante isso. */}
+                {t("Margem declarada (%)")}
+                <input
+                  data-testid="novo-tipo-margem"
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  max={100}
+                  step="0.01"
+                  value={rascunho.margem}
+                  onChange={(e) => setRascunho((r) => ({ ...r, margem: e.target.value }))}
+                  className="rounded-md border border-border bg-surface-elevated p-2 text-sm text-text outline-none focus:border-border-strong"
+                />
               </label>
               <label className="flex flex-col gap-1 text-xs font-medium text-text-muted sm:col-span-2">
                 {/* ⚠️ SEM RESPONSÁVEL NÃO HÁ AGENDA. `lib/agenda/consulta.ts` exige
@@ -371,6 +414,10 @@ export function TiposDeAgendamentoClient({
                         // voltar — que é o laço de retorno correto.
                         default_owner_user_id:
                           String(dados.get("default_owner_user_id") ?? "") || null,
+                        // ADR-0017: mesmo contrato do responsável — limpar chega
+                        // ao servidor como `null`, não como campo omitido.
+                        price_cents: centavosDe(String(dados.get("price_cents") ?? "")) ?? null,
+                        margin_bps: pontosBaseDe(String(dados.get("margin_bps") ?? "")) ?? null,
                       }),
                     "Tipo alterado.",
                   );
@@ -395,6 +442,33 @@ export function TiposDeAgendamentoClient({
                     max={1440}
                     defaultValue={tipo.duration_minutes}
                     data-testid={`editar-duracao-${tipo.id}`}
+                    className="rounded-md border border-border bg-surface-elevated p-2 text-sm text-text"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-xs text-text-muted">
+                  {t("Preço (R$)")}
+                  <input
+                    name="price_cents"
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    step="0.01"
+                    defaultValue={reaisDe(tipo.price_cents)}
+                    data-testid={`editar-preco-${tipo.id}`}
+                    className="rounded-md border border-border bg-surface-elevated p-2 text-sm text-text"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-xs text-text-muted">
+                  {t("Margem declarada (%)")}
+                  <input
+                    name="margin_bps"
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    max={100}
+                    step="0.01"
+                    defaultValue={percentualDe(tipo.margin_bps)}
+                    data-testid={`editar-margem-${tipo.id}`}
                     className="rounded-md border border-border bg-surface-elevated p-2 text-sm text-text"
                   />
                 </label>

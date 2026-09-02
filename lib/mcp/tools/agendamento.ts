@@ -335,6 +335,8 @@ export const crmListAppointments: McpToolDefinition<typeof listarShape> = {
         situacao: a.situacao,
         contato_id: a.contatoId,
         atendente_id: a.donoId,
+        // ADR-0017: o preço do tipo vai junto; o que foi PAGO não — é do Dono.
+        preco_cents: a.precoCents,
       })),
     };
   },

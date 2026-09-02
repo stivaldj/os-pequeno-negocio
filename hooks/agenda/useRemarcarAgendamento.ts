@@ -86,8 +86,16 @@ export function useCancelarAgendamento() {
 export function useRegistrarDesfecho() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (entrada: { id: string; status: "completed" | "no_show" }) =>
-      apiClient.patch<{ data: { id: string } }>("/api/v1/agenda/agendamentos", entrada),
+    // ADR-0017: `paid_cents` só acompanha `completed`, e só quando a pessoa
+    // informou. `undefined` NÃO vai no corpo — a ausência é "dado faltante",
+    // que é diferente de zero, e a rota recusa o campo fora de `completed`.
+    mutationFn: async (entrada: { id: string; status: "completed" | "no_show"; paid_cents?: number }) =>
+      apiClient.patch<{ data: { id: string } }>(
+        "/api/v1/agenda/agendamentos",
+        entrada.status === "completed" && entrada.paid_cents !== undefined
+          ? { id: entrada.id, status: entrada.status, paid_cents: entrada.paid_cents }
+          : { id: entrada.id, status: entrada.status },
+      ),
     onSuccess: (_dados, entrada) => {
       toast.success(
         entrada.status === "completed"

@@ -6297,6 +6297,12 @@ export const DICIONARIO: Traducoes = {
   "tokens": { es: "tokens" },
   "Voltar para": { es: "Volver a" },
   "Ir para outra organização": { es: "Ir a otra organización" },
+  // ADR-0017: preço e margem no tipo; valor pago no "Realizado".
+  "Preço (R$)": { es: "Precio (R$)" },
+  "Margem declarada (%)": { es: "Margen declarado (%)" },
+  "Quanto foi pago?": { es: "¿Cuánto se pagó?" },
+  "Valor pago (R$)": { es: "Valor pagado (R$)" },
+  "Sem valor, fica como dado faltante.": { es: "Sin valor, queda como dato faltante." },
 };
 
 /**

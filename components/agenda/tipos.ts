@@ -67,6 +67,14 @@ export type Agendamento = {
   local?: string;
   origem: OrigemDoAgendamento;
   situacao: SituacaoDoAgendamento;
+  /**
+   * ADR-0017. O preço do tipo, em centavos: é o que o diálogo de "Realizado"
+   * pré-preenche. Opcional e nulável de propósito — a ocupação do Google não
+   * tem preço, e um servidor mais velho que o cliente não manda o campo.
+   */
+  precoCents?: number | null;
+  /** O que foi pago, em centavos. Nulo até o desfecho com valor. */
+  pagoCents?: number | null;
 };
 
 /** Um horário oferecido pelo painel de marcação. */
