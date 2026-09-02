@@ -410,6 +410,10 @@ export const AUDIT_ACTIONS = [
   "agenda.reminder_sent",
   /** O Embarque da clínica rodou: uma linha por execução, com o relatório (feito/pulado) no metadata. */
   "clinica.embarque_executado",
+  /** Verba do Google Ads sincronizada em `ad_spend` (linhas por rodada no metadata). */
+  "ads.spend_synced",
+  /** A leitura da API do Google Ads falhou para uma Conta; `ad_accounts.last_error` tem o motivo. */
+  "ads.sync_falhou",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */
