@@ -23,6 +23,8 @@ export default defineConfig({
     // a tests/e2e/**: sem excluir, o include default do vitest o pegaria e o
     // import de @playwright/test derrubaria a suíte unitária.
     exclude: [
+      // Provas de realidade (scripts/prova-*.ts → vitest.prova.config.ts): exigem pilha local.
+      "tests/prova/**",
       "**/node_modules/**",
       ".next",
       "dist",

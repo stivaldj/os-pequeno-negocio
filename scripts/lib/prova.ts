@@ -4,10 +4,7 @@
  * real em vez de seguir fingindo.
  */
 export function afirmar(condicao: unknown, mensagem: string): asserts condicao {
-  if (!condicao) {
-    console.error(`  ✗ ${mensagem}`);
-    process.exit(1);
-  }
+  if (!condicao) throw new Error(`✗ ${mensagem}`);
 }
 
 export async function passo<T>(nome: string, fn: () => Promise<T>): Promise<T> {
@@ -18,8 +15,7 @@ export async function passo<T>(nome: string, fn: () => Promise<T>): Promise<T> {
     return r;
   } catch (err) {
     console.log("FALHOU");
-    console.error(`  ${err instanceof Error ? err.stack ?? err.message : String(err)}`);
-    process.exit(1);
+    throw err;
   }
 }
 
