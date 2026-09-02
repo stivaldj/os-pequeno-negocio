@@ -428,6 +428,8 @@ export const AUDIT_ACTIONS = [
   "ads.account_updated",
   "ads.link_created",
   "ads.proposal_decided",
+  /** Conversão offline (`lib/ads/conversoes.ts`): a rodada devolveu ≥ 1 consulta paga ao Google. Metadata: enviadas/falhas/ignoradas. */
+  "ads.conversion_uploaded",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */
