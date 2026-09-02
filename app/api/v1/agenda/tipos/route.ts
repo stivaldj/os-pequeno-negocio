@@ -58,6 +58,10 @@ const camposDoTipo = {
   buffer_after_minutes: z.number().int().min(0).max(720).optional(),
   minimum_notice_minutes: z.number().int().min(0).max(43_200).optional(),
   booking_window_days: z.number().int().min(1).max(365).optional(),
+  // ADR-0017: preço em centavos e Margem Declarada em pontos-base (6000 = 60%).
+  // Nulo = não cadastrado; o Agente diz que não tem o valor.
+  price_cents: z.number().int().min(0).nullish(),
+  margin_bps: z.number().int().min(0).max(10_000).nullish(),
 };
 
 const criarSchema = z.object(camposDoTipo);

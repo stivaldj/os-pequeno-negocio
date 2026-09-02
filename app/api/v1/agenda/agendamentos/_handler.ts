@@ -65,6 +65,8 @@ export interface AlterarInput {
   starts_at?: string;
   status?: "confirmed" | "completed" | "no_show";
   notes?: string;
+  /** ADR-0017: valor pago em centavos; só com `status: "completed"`. */
+  paid_cents?: number;
 }
 
 export interface CancelarInput {
@@ -138,6 +140,21 @@ export async function marcarAgendamentoHandler(
       throw new ApiError(404, "not_found", undefined, ctx.requestId, "Contato não encontrado.");
     }
   }
+  // A conversa mais recente do contato, para o lembrete de consulta sair pelo
+  // mesmo canal em que ele falou. A coluna existia desde a 0177 e ninguém a
+  // gravava. Sem conversa, fica nula (o lembrete cai no fallback por contato).
+  let conversationId: string | null = null;
+  if (input.contact_id) {
+    const { data: conversa } = await supabase
+      .from("conversations")
+      .select("id")
+      .eq("organization_id", ctx.organization_id)
+      .eq("contact_id", input.contact_id)
+      .order("last_message_at", { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle();
+    conversationId = (conversa as { id?: string } | null)?.id ?? null;
+  }
 
   const fim = new Date(inicio.getTime() + tipo.duration_minutes * 60_000);
   const consulta = await exigeHorarioLivre(supabase, ctx, {
@@ -161,6 +178,7 @@ export async function marcarAgendamentoHandler(
       status: tipo.requires_confirmation ? "pending" : "confirmed",
       owner_user_id: donoId,
       contact_id: input.contact_id ?? null,
+      conversation_id: conversationId,
       location_kind: tipo.location_kind,
       location_details: tipo.location_details,
       notes: input.notes ?? null,
@@ -240,6 +258,12 @@ export async function alterarAgendamentoHandler(
 
   const mudanca: Record<string, unknown> = {};
   if (input.notes !== undefined) mudanca.notes = input.notes;
+  // ADR-0017: a consulta paga é a Venda Confirmada. Entra mesmo que o status
+  // já seja `completed` — é assim que a recepção corrige um valor digitado errado.
+  if (input.paid_cents !== undefined && input.status === "completed") {
+    mudanca.paid_cents = input.paid_cents;
+    mudanca.paid_currency = "BRL";
+  }
   let transicao: Transicao | null = null;
 
   if (input.starts_at) {
@@ -323,6 +347,20 @@ export async function alterarAgendamentoHandler(
     .single();
   if (erroUpdate) {
     throw new ApiError(500, "internal_error", undefined, ctx.requestId, erroUpdate.message);
+  }
+
+  // ADR-0017: dinheiro entrou no registro — isso se audita, ao contrário do
+  // desfecho puro (`completed`/`no_show`), que por decisão herdada não audita.
+  if (mudanca.paid_cents !== undefined) {
+    void audit({
+      action: "agenda.appointment_paid",
+      organizationId: ctx.organization_id,
+      actorUserId: ctx.actor.type === "user" ? ctx.actor.id : null,
+      resourceType: "calendar_appointment",
+      resourceId: atual.id as string,
+      requestId: ctx.requestId,
+      metadata: { appointment_id: atual.id, paid_cents: mudanca.paid_cents, paid_currency: "BRL" },
+    });
   }
 
   if (transicao) {

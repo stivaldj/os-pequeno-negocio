@@ -134,6 +134,11 @@ export const crmListEventTypes: McpToolDefinition<typeof tiposShape> = {
         // recebe. `rotuloDoLocal` é o MESMO tradutor que a tela usa.
         onde: rotuloDoLocal(t.localKind, t.localDetalhes) ?? null,
         precisa_confirmacao: t.precisaConfirmacao,
+        // ADR-0017: o preço que o Dono cadastrou, em centavos. Nulo = a clínica
+        // não informou; diga que não tem o valor e ofereça a recepção. Nunca
+        // invente nem arredonde.
+        preco_cents: t.precoCents,
+        moeda: "BRL",
       })),
     };
   },

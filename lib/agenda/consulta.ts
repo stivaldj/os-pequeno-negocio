@@ -571,6 +571,10 @@ export interface TipoDeAtendimento {
   bufferDepoisMin: number;
   antecedenciaMinimaMin: number;
   janelaDeAgendamentoDias: number;
+  /** Preço em centavos cadastrado pelo Dono (ADR-0017). Nulo = não cadastrado. */
+  precoCents: number | null;
+  /** Margem Declarada em pontos-base (6000 = 60%). Nulo = não declarada. */
+  margemBps: number | null;
 }
 
 export type ResultadoDosTipos =
@@ -600,7 +604,7 @@ export async function listaTiposDeAtendimento(
   let q = supabase
     .from("calendar_event_types")
     .select(
-      "id, name, slug, description, category, duration_minutes, location_kind, location_details, requires_confirmation, is_active, default_owner_user_id, buffer_before_minutes, buffer_after_minutes, minimum_notice_minutes, booking_window_days",
+      "id, name, slug, description, category, duration_minutes, location_kind, location_details, requires_confirmation, is_active, default_owner_user_id, buffer_before_minutes, buffer_after_minutes, minimum_notice_minutes, booking_window_days, price_cents, margin_bps",
     )
     // Service role bypassa a RLS: este filtro é a única proteção no caminho da
     // ferramenta MCP (ver o cabeçalho do arquivo).
@@ -636,6 +640,8 @@ export async function listaTiposDeAtendimento(
       bufferDepoisMin: Number(t.buffer_after_minutes),
       antecedenciaMinimaMin: Number(t.minimum_notice_minutes),
       janelaDeAgendamentoDias: Number(t.booking_window_days),
+      precoCents: t.price_cents === null || t.price_cents === undefined ? null : Number(t.price_cents),
+      margemBps: t.margin_bps === null || t.margin_bps === undefined ? null : Number(t.margin_bps),
     })),
   };
 }

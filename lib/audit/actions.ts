@@ -388,6 +388,8 @@ export const AUDIT_ACTIONS = [
   "agenda.appointment_created",
   "agenda.appointment_rescheduled",
   "agenda.appointment_cancelled",
+  /** ADR-0017: a recepção marcou "compareceu" com valor pago — a Venda Confirmada. */
+  "agenda.appointment_paid",
   // Relógio HTTP (Hobby / sem contêiner scheduler): uma batida que alguém
   // de fora chama. Só audita quando alguma tarefa mexeu em dado.
   "relogio.tick_run",
