@@ -118,3 +118,17 @@ Issue: #23. Spec: `docs/spec/0003-relatorio-das-8h.md` ("O dinheiro", "O Agente 
 ## O que este plano não faz
 
 Não liga níveis 2 e 3 (Fase 8). Não toca Meta Ads. Não faz landing page com HTML: `/ir/<slug>` é redirecionamento. Não envia lista de pacientes ao Google em nenhuma forma. Não guarda credencial do Google por Conta: uma instalação, um MCC.
+
+---
+
+## Desvios registrados na execução (02/09/2026)
+
+- **`.env.hostgator.example` sem as `GOOGLE_ADS_*`**: o validador do kit reprova chave que o `install.sh` não grava (mesmo caso das da Meta). Pendência do DoD registrada até o kit aprender a gravá-las.
+- **`EntradaPreparada.codigoDeClique` é opcional no tipo** (sempre preenchido pelo preparador): `gravar.ts` monta o literal à mão e tinha de ficar intocado.
+- **`lib/ads/captura.ts` nasceu duas vezes** (registro do clique aqui, helpers de slug/URL na Tarefa 9); ficou um arquivo só com os dois papéis.
+- **Vigia de rotinas avisa cada Dono** (`enviarAosDonos`): ele fala no nível da instalação, sem org. O contato do Dono é criado por insert direto, não pela RPC de WhatsApp (ela exige `chat_id`).
+- **Audit de conversão por Conta**, não por rodada: a rodada percorre várias organizações e um audit único não teria `organization_id`.
+- **Conversões: janela de 90 dias em `starts_at`** na seleção (fora dela o Google devolve `EXPIRED_EVENT`); a rota pula sem tocar no banco quando o Google não está configurado.
+- **Escritas do Agente existem e recusam** (`escrita_chega_na_fase_8`); a Fase 8 liga.
+- **`ads.sync_falhou` foi declarada por duas tarefas**; ficou uma.
+- **Prova de realidade por vitest** (`tests/prova/ads.prova.ts`), como a da Fase 4; `scripts/prova-ads.ts` é casca.
