@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { audit } from "@/lib/audit";
 import { aplicarConfiguracaoClinica } from "@/lib/clinica/config";
+import { aplicarConfiguracaoDoDono } from "@/lib/dono/config";
 import { tenantSchema, type TenantInput } from "@/lib/schemas/settings";
 import { loadAuthUser, resolveActiveOrg } from "@/lib/auth/server";
 import { ROLE_RANK } from "@/lib/auth/types";
@@ -63,14 +64,18 @@ export async function updateTenant(input: TenantInput): Promise<UpdateTenantResu
   if (readErr) return { ok: false, error: readErr.message };
 
   const currentSettings = (orgRow?.settings as Record<string, unknown> | null) ?? {};
-  // O bloco clínico entra pelo merge de `lib/clinica/config.ts` (dois níveis,
-  // não destrutivo): a action nunca escreve o caminho `settings.clinica.*` à mão.
-  const nextSettings = aplicarConfiguracaoClinica(
-    {
-      ...currentSettings,
-      lost_reasons_extra: parsed.data.lost_reasons_extra,
-    },
-    { redacao: parsed.data.clinica_redacao },
+  // Os blocos clínico e do Dono entram pelos merges de `lib/clinica/config.ts`
+  // e `lib/dono/config.ts` (dois níveis, não destrutivos): a action nunca
+  // escreve os caminhos `settings.clinica.*` e `settings.dono.*` à mão.
+  const nextSettings = aplicarConfiguracaoDoDono(
+    aplicarConfiguracaoClinica(
+      {
+        ...currentSettings,
+        lost_reasons_extra: parsed.data.lost_reasons_extra,
+      },
+      { redacao: parsed.data.clinica_redacao },
+    ),
+    { whatsapp: parsed.data.dono_whatsapp ?? null },
   );
 
   const { error } = await supabase

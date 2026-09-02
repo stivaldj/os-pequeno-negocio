@@ -208,6 +208,10 @@ export const DICIONARIO: Traducoes = {
   "Redigir Conteúdo Clínico e passar para humano (ADR-0004)": {
     es: "Redactar Contenido Clínico y derivar a un humano (ADR-0004)",
   },
+  "WhatsApp do Dono": { es: "WhatsApp del Dueño" },
+  "Formato internacional. Recebe os avisos do produto pelo WhatsApp.": {
+    es: "Formato internacional. Recibe los avisos del producto por WhatsApp.",
+  },
   "Retenção de mídia (dias)": { es: "Retención de medios (días)" },
   "URL política de privacidade": { es: "URL de la política de privacidad" },
   "Motivos de perda extras (separados por vírgula)": {
