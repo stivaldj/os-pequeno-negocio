@@ -9,7 +9,7 @@ import type { McpContext } from "@/lib/mcp/types";
 
 vi.mock("@/lib/audit", () => ({ audit: vi.fn(async () => undefined), isServiceRoleConfigured: vi.fn(() => true) }));
 vi.mock("@/lib/agenda/consulta", async (original) => {
-  const real = await original<typeof import("@/lib/agenda/consulta")>();
+  const real = (await original()) as Record<string, unknown>;
   return { ...real, listaTiposDeAtendimento: vi.fn() };
 });
 

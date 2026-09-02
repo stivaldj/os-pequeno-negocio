@@ -43,7 +43,8 @@ beforeAll(() => {
     insert into public.user_organizations (user_id, organization_id, role, accepted_at)
       values ('${USER_B}', '${ORG_B}', 'agent', now()) on conflict do nothing;
     insert into public.calendar_event_types (id, organization_id, name, slug, category, duration_minutes, location_kind, price_cents, margin_bps)
-      values ('${TIPO_A}', '${ORG_A}', 'Consulta', 'consulta', 'consulta', 30, 'in_person', 20000, 6000)
+      -- slug próprio: o gatilho de nova organização já semeia 'consulta', 'atendimento' e 'reuniao'.
+      values ('${TIPO_A}', '${ORG_A}', 'Consulta paga', 'consulta-dinheiro-inv', 'consulta', 30, 'in_person', 20000, 6000)
       on conflict (organization_id, slug) do nothing;
   `);
 });
