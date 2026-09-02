@@ -338,6 +338,14 @@ export interface AgendamentoListado {
   donoId: string | null;
   contatoId: string | null;
   contatoNome: string | null;
+  /**
+   * ADR-0017: o preço do TIPO, em centavos — nulo quando o Dono não cadastrou.
+   * É o que a tela pré-preenche ao registrar "Realizado" e o que o agente vê
+   * ao listar compromissos. Vem do embed `calendar_event_types(price_cents)`.
+   */
+  precoCents: number | null;
+  /** O que foi pago, em centavos — nulo até o desfecho com valor. Não vai ao modelo. */
+  pagoCents: number | null;
 }
 
 export interface ParametrosDaLista {
@@ -384,6 +392,23 @@ function nomeDoContato(
 ): string | null {
   const alvo = Array.isArray(c) ? c[0] : c;
   return alvo?.name ?? alvo?.display_name ?? null;
+}
+
+/** Centavos ou nulo — nunca `NaN`, nunca 0 no lugar de "não informado". */
+function centavosOuNulo(v: unknown): number | null {
+  return v === null || v === undefined ? null : Number(v);
+}
+
+/**
+ * O mesmo embed objeto-ou-array, para o preço do tipo. Exportado porque a
+ * primeira pintura de `app/app/agenda/page.tsx` lê o mesmo embed — e a segunda
+ * cópia de um "objeto ou array" é a que erra quando o PostgREST muda de forma.
+ */
+export function precoDoTipo(
+  t: { price_cents: unknown } | { price_cents: unknown }[] | null | undefined,
+): number | null {
+  const alvo = Array.isArray(t) ? t[0] : t;
+  return centavosOuNulo(alvo?.price_cents);
 }
 
 export async function listaAgendamentos(
@@ -434,7 +459,7 @@ export async function listaAgendamentos(
   let q = supabase
     .from("calendar_appointments")
     .select(
-      "id, title, starts_at, ends_at, time_zone, status, owner_user_id, contact_id, contacts(name, display_name)",
+      "id, title, starts_at, ends_at, time_zone, status, owner_user_id, contact_id, paid_cents, contacts(name, display_name), calendar_event_types(price_cents)",
     )
     .eq("organization_id", organizationId)
     .order("starts_at", { ascending: true })
@@ -498,6 +523,8 @@ export async function listaAgendamentos(
       // dizer "você já tem consulta marcada, Maria". Mesma coluna que a tela do
       // produto lê, mesmo precedente de `name` antes de `display_name`.
       contatoNome: nomeDoContato(l.contacts),
+      precoCents: precoDoTipo(l.calendar_event_types),
+      pagoCents: centavosOuNulo(l.paid_cents),
     })),
   };
 }
@@ -571,6 +598,10 @@ export interface TipoDeAtendimento {
   bufferDepoisMin: number;
   antecedenciaMinimaMin: number;
   janelaDeAgendamentoDias: number;
+  /** Preço em centavos cadastrado pelo Dono (ADR-0017). Nulo = não cadastrado. */
+  precoCents: number | null;
+  /** Margem Declarada em pontos-base (6000 = 60%). Nulo = não declarada. */
+  margemBps: number | null;
 }
 
 export type ResultadoDosTipos =
@@ -600,7 +631,7 @@ export async function listaTiposDeAtendimento(
   let q = supabase
     .from("calendar_event_types")
     .select(
-      "id, name, slug, description, category, duration_minutes, location_kind, location_details, requires_confirmation, is_active, default_owner_user_id, buffer_before_minutes, buffer_after_minutes, minimum_notice_minutes, booking_window_days",
+      "id, name, slug, description, category, duration_minutes, location_kind, location_details, requires_confirmation, is_active, default_owner_user_id, buffer_before_minutes, buffer_after_minutes, minimum_notice_minutes, booking_window_days, price_cents, margin_bps",
     )
     // Service role bypassa a RLS: este filtro é a única proteção no caminho da
     // ferramenta MCP (ver o cabeçalho do arquivo).
@@ -636,6 +667,8 @@ export async function listaTiposDeAtendimento(
       bufferDepoisMin: Number(t.buffer_after_minutes),
       antecedenciaMinimaMin: Number(t.minimum_notice_minutes),
       janelaDeAgendamentoDias: Number(t.booking_window_days),
+      precoCents: t.price_cents === null || t.price_cents === undefined ? null : Number(t.price_cents),
+      margemBps: t.margin_bps === null || t.margin_bps === undefined ? null : Number(t.margin_bps),
     })),
   };
 }

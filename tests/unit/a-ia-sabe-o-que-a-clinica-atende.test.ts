@@ -78,6 +78,8 @@ function tipo(over: Partial<TipoDeAtendimento> = {}): TipoDeAtendimento {
     bufferDepoisMin: 0,
     antecedenciaMinimaMin: 120,
     janelaDeAgendamentoDias: 60,
+    precoCents: null,
+    margemBps: null,
     ...over,
   };
 }

@@ -388,6 +388,8 @@ export const AUDIT_ACTIONS = [
   "agenda.appointment_created",
   "agenda.appointment_rescheduled",
   "agenda.appointment_cancelled",
+  /** ADR-0017: a recepção marcou "compareceu" com valor pago — a Venda Confirmada. */
+  "agenda.appointment_paid",
   // Relógio HTTP (Hobby / sem contêiner scheduler): uma batida que alguém
   // de fora chama. Só audita quando alguma tarefa mexeu em dado.
   "relogio.tick_run",
@@ -402,6 +404,12 @@ export const AUDIT_ACTIONS = [
   // em `messages`, e a trilha não é lugar de Conteúdo Clínico (ADR-0004).
   // Rodada que não achou nada não audita.
   "clinica.ato_medico_suspeito",
+  // O lembrete de consulta (`lib/agenda/lembretes.ts`) saiu pela conversa do
+  // Paciente e `reminder_sent_at` foi marcado. Uma linha por lembrete enviado —
+  // rodada sem candidato (ou só com pulados) não audita.
+  "agenda.reminder_sent",
+  /** O Embarque da clínica rodou: uma linha por execução, com o relatório (feito/pulado) no metadata. */
+  "clinica.embarque_executado",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */

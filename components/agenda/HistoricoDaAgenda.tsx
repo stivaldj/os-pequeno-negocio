@@ -9,6 +9,16 @@ import * as React from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { centavosDe, reaisDe } from "@/lib/agenda/dinheiro";
 import { cn } from "@/lib/utils";
 
 import { AvatarDaPessoa } from "./AvatarDaPessoa";
@@ -103,13 +113,23 @@ export function HistoricoDaAgenda({
    * tem para onde mandar o clique. Campo sem escritor é o mesmo defeito de
    * evento sem consumidor, visto do outro lado.
    */
-  onRealizado?: (id: string) => void;
+  /**
+   * ADR-0017: "Realizado" pergunta QUANTO FOI PAGO antes de chamar. O segundo
+   * argumento vem em centavos, ou `undefined` quando a pessoa deixou em branco
+   * — e em branco é dado faltante, não zero. Quem liga ao hook passa adiante
+   * como `paid_cents`.
+   */
+  onRealizado?: (id: string, pagoCents?: number) => void;
   onFaltou?: (id: string) => void;
   className?: string;
 }) {
   const localeDaData = useLocaleDeData();
   const t = useT();
   const [aba, setAba] = React.useState<AbaDoHistorico>("proximos");
+  // O diálogo do "Realizado": qual linha, e o valor em reais como está no campo.
+  const [realizando, setRealizando] = React.useState<Agendamento | null>(null);
+  const [valorPago, setValorPago] = React.useState("");
+  const pagoCents = centavosDe(valorPago);
   const grupos = React.useMemo(() => separar(agendamentos, agora), [agendamentos, agora]);
   const daAba = grupos[aba];
 
@@ -257,7 +277,12 @@ export function HistoricoDaAgenda({
                           size="sm"
                           data-testid={`realizado-${a.id}`}
                           disabled={!onRealizado}
-                          onClick={() => onRealizado?.(a.id)}
+                          onClick={() => {
+                            // Pré-preenchido com o preço do TIPO: o comum é
+                            // pagar a tabela, e o incomum é o que se digita.
+                            setValorPago(reaisDe(a.precoCents));
+                            setRealizando(a);
+                          }}
                         >
                           {t("Realizado")}
                         </Button>
@@ -279,6 +304,55 @@ export function HistoricoDaAgenda({
           </ul>
         )}
       </div>
+
+      <Dialog open={realizando !== null} onOpenChange={(aberto) => { if (!aberto) setRealizando(null); }}>
+        <DialogContent data-testid="dialogo-valor-pago">
+          <DialogHeader>
+            <DialogTitle>{t("Quanto foi pago?")}</DialogTitle>
+            <DialogDescription>
+              {realizando?.quemSeraAtendido ?? (realizando ? t(realizando.titulo) : "")}
+              {realizando?.tipo ? ` · ${t(realizando.tipo)}` : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <label className="flex flex-col gap-1 text-xs text-text-muted">
+            {t("Valor pago (R$)")}
+            <Input
+              data-testid="valor-pago"
+              type="number"
+              inputMode="decimal"
+              min={0}
+              step="0.01"
+              value={valorPago}
+              onChange={(e) => setValorPago(e.target.value)}
+              autoFocus
+            />
+          </label>
+          {/* Em branco NÃO é zero: o registro fica sem valor, e o relatório
+              das 8h o lista como dado faltante em vez de somar R$ 0. */}
+          {pagoCents === undefined ? (
+            <p data-testid="aviso-sem-valor" className="text-xs text-warning">
+              {t("Sem valor, fica como dado faltante.")}
+            </p>
+          ) : null}
+          <DialogFooter>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setRealizando(null)}>
+              {t("Voltar")}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              data-testid="confirmar-valor-pago"
+              onClick={() => {
+                if (!realizando) return;
+                onRealizado?.(realizando.id, pagoCents);
+                setRealizando(null);
+              }}
+            >
+              {t("Confirmar")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

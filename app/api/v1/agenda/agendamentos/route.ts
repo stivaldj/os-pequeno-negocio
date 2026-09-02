@@ -61,6 +61,15 @@ const alterarSchema = z
      */
     status: z.enum(["confirmed", "completed", "no_show"]).optional(),
     notes: z.string().max(2000).optional(),
+    /**
+     * ADR-0017: o valor pago, digitado pela recepção ao marcar "compareceu". Só
+     * faz sentido com `status: "completed"` no mesmo corpo; ausente = dado
+     * faltante (não zero). Pode ser corrigido num segundo PATCH.
+     */
+    paid_cents: z.number().int().min(0).optional(),
+  })
+  .refine((c) => c.paid_cents === undefined || c.status === "completed", {
+    message: "paid_cents só acompanha status completed",
   })
   .refine((c) => c.starts_at !== undefined || c.status !== undefined || c.notes !== undefined, {
     message: "Informe pelo menos um campo para alterar.",
