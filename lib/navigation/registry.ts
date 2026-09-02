@@ -23,6 +23,7 @@ import {
   Lightbulb,
   ListChecks,
   Lock,
+  Megaphone,
   Palette,
   Plugs,
   PlugsConnected,
@@ -453,6 +454,17 @@ export const NAV_DESTINATIONS: NavDestination[] = [
     group: "analise",
     minRole: "manager",
     sidebar: true,
+  },
+  {
+    // Sem `sidebar: true` de propósito: a Fase 5 ainda está entrando, e a porta
+    // é o hub de Análise e o ⌘K. Vai ao sidebar quando a prova de realidade
+    // (Sobra por Real da Clínica Humana na tela) fechar.
+    href: "/app/anuncios",
+    label: "Anúncios",
+    description: "Google Ads: quanto cada campanha devolve por real gasto, links de captura e propostas do agente.",
+    icon: Megaphone,
+    group: "analise",
+    minRole: "manager",
   },
 
   // ---- Organização — conta, empresa, acesso ----
