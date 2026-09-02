@@ -410,6 +410,10 @@ export const AUDIT_ACTIONS = [
   "agenda.reminder_sent",
   /** O Embarque da clínica rodou: uma linha por execução, com o relatório (feito/pulado) no metadata. */
   "clinica.embarque_executado",
+  /** Conversão offline (`lib/ads/conversoes.ts`): a rodada devolveu ≥ 1 consulta paga ao Google. Metadata: enviadas/falhas/ignoradas. */
+  "ads.conversion_uploaded",
+  /** Uma chamada ao Google Ads falhou inteira; `ad_accounts.last_error` guarda o motivo. */
+  "ads.sync_falhou",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */
