@@ -276,6 +276,17 @@ const schema = z.object({
   GOOGLE_CALENDAR_CLIENT_ID: z.string().optional().default(""),
   GOOGLE_CALENDAR_CLIENT_SECRET: z.string().optional().default(""),
 
+  // Google Ads — opcional, por INSTALAÇÃO (a LAVRA opera um MCC só, ADR-0009).
+  // Mesma decisão da Agenda: estar configurado É ter as cinco chaves, e sem
+  // elas o módulo de anúncios diz o que falta (`lib/ads/google/config.ts`).
+  // A versão da API é a sexta e nunca decide disponibilidade.
+  GOOGLE_ADS_DEVELOPER_TOKEN: z.string().optional().default(""),
+  GOOGLE_ADS_OAUTH_CLIENT_ID: z.string().optional().default(""),
+  GOOGLE_ADS_OAUTH_CLIENT_SECRET: z.string().optional().default(""),
+  GOOGLE_ADS_REFRESH_TOKEN: z.string().optional().default(""),
+  GOOGLE_ADS_LOGIN_CUSTOMER_ID: z.string().optional().default(""),
+  GOOGLE_ADS_API_VERSION: z.string().optional().default("v25"),
+
   // Nuvemshop — opcional (template genérico open-source). Só exigidas quando
   // NUVEMSHOP_ENABLED=true; o runtime já degrada via getConfig()==null.
   NUVEMSHOP_APP_ID: z.string().optional().default(""),
