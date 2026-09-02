@@ -8,11 +8,13 @@
  *
  *   - abre um item `other`/`critical` na Central de avisos da Conta, apontando
  *     para a mensagem (`ref_kind = 'message'`) — quem julga é uma pessoa;
- *   - audita `clinica.ato_medico_suspeito` com o motivo.
+ *   - audita `clinica.ato_medico_suspeito` com o motivo;
+ *   - avisa o Dono pelo WhatsApp (`enviarAoDono`, `lib/dono/`), uma frase.
  *
- * Nem o item nem o audit carregam o TEXTO da resposta: ela fica em `messages`,
- * que é o único lugar dela. Copiar para a Central seria persistir de novo o
- * Conteúdo Clínico que a resposta provavelmente cita (ADR-0004).
+ * Nem o item, nem o audit, nem o aviso ao Dono carregam o TEXTO da resposta:
+ * ela fica em `messages`, que é o único lugar dela. Copiar para a Central (ou
+ * para o WhatsApp do Dono) seria persistir de novo o Conteúdo Clínico que a
+ * resposta provavelmente cita (ADR-0004).
  *
  * Não bloqueia, não apaga, não responde de volta. O gate na cadeia
  * `before_send` é fase posterior — exigiria contexto montado em
@@ -25,12 +27,17 @@ import { configuracaoClinica } from "./config";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { audit } from "@/lib/audit";
+import { enviarAoDono } from "@/lib/dono/destinatario";
 
 import { pareceAtoMedico } from "./ato-medico";
 
 const JANELA_MINUTOS = 60;
 
 export const TITULO_DO_AVISO = "Possível ato médico na resposta do Agente";
+
+/** Sem id, sem motivo, sem texto: o Dono abre a Central e vê o resto lá. */
+export const AVISO_AO_DONO =
+  "Uma resposta do assistente pareceu ato médico; veja a Central de avisos.";
 
 export interface ResultadoDaVigiaClinica {
   organizacoes: number;
@@ -100,6 +107,8 @@ async function apontar(admin: SupabaseClient, orgId: string, messageId: string, 
     bypassedRls: true,
     metadata: { motivo },
   });
+
+  await enviarAoDono(admin, orgId, AVISO_AO_DONO);
 }
 
 export async function vigiarAtoMedico(

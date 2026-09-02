@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { requireAuth, resolveActiveOrg } from "@/lib/auth/server";
 import { ROLE_RANK } from "@/lib/auth/types";
 import { configuracaoClinica } from "@/lib/clinica/config";
+import { whatsappDoDono } from "@/lib/dono/config";
 import { traduzir } from "@/lib/i18n/dicionario";
 import { createClient } from "@/lib/supabase/server";
 import { TenantForm } from "./_form";
@@ -68,6 +69,7 @@ export default async function TenantSettingsPage() {
             privacy_policy_url: row.privacy_policy_url,
             lost_reasons_extra: lostReasonsExtra,
             clinica_redacao: configuracaoClinica(row.settings).redacao,
+            dono_whatsapp: whatsappDoDono(row.settings),
           }}
         />
       )}

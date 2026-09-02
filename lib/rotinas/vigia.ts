@@ -10,7 +10,9 @@
  *   - item `job_dead` em `agent_inbox_items`, com `organization_id` nulo —
  *     a Central de avisos da instalação (o `kind` é do CHECK fechado da tabela;
  *     inventar um passa no dublê e reprova no banco real);
- *   - `audit` `rotinas.nao_rodou` — a trilha.
+ *   - `audit` `rotinas.nao_rodou` — a trilha;
+ *   - uma linha curta ao Dono de cada Conta com WhatsApp configurado
+ *     (`enviarAosDonos`, `lib/dono/`) — quem paga fica sabendo.
  *
  * A tolerância é `2 × período + 5 min`, inclusiva: um tick atrasado não é
  * ausência; dois seguidos, é. O que se compara é `started_at`, não
@@ -28,12 +30,16 @@
  * Passada a tolerância, grita de novo — um aviso por janela, até alguém
  * consertar.
  *
- * Não avisa o Dono pelo WhatsApp: isso precisa do destinatário "dono", que é
- * da Fase 7. Até lá o alerta é o que está acima.
+ * Limitação conhecida: o aviso ao Dono sai pelo MESMO canal de WhatsApp que a
+ * rotina caída pode ter derrubado (`channel-health` calada costuma significar
+ * exatamente isso). Quando o canal está de pé, o Dono sabe na hora; quando não
+ * está, ficam a Central de avisos e o audit — e o motivo `sem_canal` no log.
+ * Um segundo canal (e-mail, SMS) é decisão de fase posterior.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { audit } from "@/lib/audit";
+import { enviarAosDonos } from "@/lib/dono/destinatario";
 import { logger } from "@/lib/logger";
 
 import { ROTINAS_ESPERADAS, type RotinaEsperada } from "./esperadas";
@@ -141,6 +147,18 @@ async function registrarAusencia(
       tolerancia_min: tolerancia,
     },
   });
+
+  // Curto e sem instrução de operador: o `body` do inbox cita INTERNAL_SECRET
+  // e docker compose, e isso não é conversa para o WhatsApp do Dono.
+  await enviarAosDonos(
+    admin,
+    `A rotina ${rotina.nome} não rodou nas últimas ${horasOuMinutos(silencio)}. Veja a Central de avisos.`,
+  );
+}
+
+function horasOuMinutos(minutos: number): string {
+  if (minutos < 120) return `${minutos} min`;
+  return `${Math.floor(minutos / 60)} h`;
 }
 
 export async function vigiar(admin: SupabaseClient, agora: Date = new Date()): Promise<ResultadoDaVigia> {

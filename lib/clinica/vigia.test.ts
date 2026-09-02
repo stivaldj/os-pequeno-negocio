@@ -41,10 +41,20 @@ let mensagens: Msg[];
 let itens: Item[];
 const ops: Op[] = [];
 const auditados: Record<string, unknown>[] = [];
+const avisosAoDono: { organizationId: string; texto: string }[] = [];
 
 vi.mock("@/lib/audit", () => ({
   audit: async (entrada: Record<string, unknown>) => {
     auditados.push(entrada);
+  },
+}));
+
+// O destinatário "dono" é módulo próprio (`lib/dono/`), testado lá com o seu
+// dublê; aqui só se prova que o vigia o CHAMA, sem o texto da resposta.
+vi.mock("@/lib/dono/destinatario", () => ({
+  enviarAoDono: async (_admin: unknown, organizationId: string, texto: string) => {
+    avisosAoDono.push({ organizationId, texto });
+    return { ok: true };
   },
 }));
 
@@ -134,6 +144,7 @@ beforeEach(() => {
   itens = [];
   ops.length = 0;
   auditados.length = 0;
+  avisosAoDono.length = 0;
 });
 
 
@@ -168,6 +179,14 @@ describe("vigiarAtoMedico", () => {
       metadata: { motivo: "prescricao" },
     });
     expect(JSON.stringify(auditados[0])).not.toContain("comprimido");
+
+    // O Dono fica sabendo pelo WhatsApp — e o aviso não carrega a resposta
+    // (ADR-0004: o texto fica em `messages`, e só lá).
+    expect(avisosAoDono).toHaveLength(1);
+    expect(avisosAoDono[0]?.organizationId).toBe(ORG);
+    expect(avisosAoDono[0]?.texto).toContain("Central de avisos");
+    expect(avisosAoDono[0]?.texto).not.toContain("comprimido");
+    expect(avisosAoDono[0]?.texto).not.toContain("msg-1");
   });
 
   it("resposta de atendimento normal não gera nada", async () => {
@@ -178,6 +197,7 @@ describe("vigiarAtoMedico", () => {
     expect(r).toEqual({ organizacoes: 1, mensagens: 2, suspeitas: 0 });
     expect(insertsEm("agent_inbox_items")).toEqual([]);
     expect(auditados).toEqual([]);
+    expect(avisosAoDono).toEqual([]);
   });
 
   it("dedup: mensagem já apontada na Central não vira segundo item nem segundo audit", async () => {
@@ -189,6 +209,7 @@ describe("vigiarAtoMedico", () => {
     expect(r.suspeitas).toBe(0);
     expect(insertsEm("agent_inbox_items")).toEqual([]);
     expect(auditados).toEqual([]);
+    expect(avisosAoDono).toEqual([]);
   });
 
   it("só lê respostas do Agente da última hora: filtros mordem em direction, sent_via e created_at", async () => {
