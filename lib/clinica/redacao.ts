@@ -14,6 +14,7 @@
  * outro grava dado sensível.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { extrairCodigoDeClique } from "@/lib/ads/codigo";
 import { logger } from "@/lib/logger";
 import { classificarConteudoClinico, type MotivoClinico } from "./classificar";
 import { configuracaoClinica } from "./config";
@@ -26,6 +27,17 @@ export interface EntradaPreparada {
   preview: string;
   textoParaEfeitos: string | null;
   redigido: { motivo: MotivoClinico | "configuracao_indisponivel" } | null;
+  /**
+   * Código de Clique (ADR-0016), lido do texto CRU antes de qualquer decisão
+   * de redação. O código não é Conteúdo Clínico, e a primeira mensagem de um
+   * Contato que veio do anúncio pode ser clínica — perder a atribuição aí
+   * seria perder exatamente a conversa que o anúncio pagou.
+   *
+   * Opcional só no TIPO: `prepararEntradaDoContato` sempre preenche. O eco da
+   * coexistência monta esta forma à mão para a SAÍDA da recepção, que nunca
+   * carrega código — e aquele arquivo é herdado, não muda por módulo próprio.
+   */
+  codigoDeClique?: string | null;
 }
 
 
@@ -48,13 +60,18 @@ async function lerRedacaoDaConta(
   return { ok: true, redacao: configuracaoClinica((data as { settings?: unknown } | null)?.settings).redacao };
 }
 
-function integra(texto: string | null): EntradaPreparada {
+function integra(texto: string | null, codigoDeClique: string | null): EntradaPreparada {
   return {
     body: texto,
     preview: (texto ?? "").slice(0, PREVIEW_MAX),
     textoParaEfeitos: texto,
     redigido: null,
+    codigoDeClique,
   };
+}
+
+function redigida(motivo: NonNullable<EntradaPreparada["redigido"]>, codigoDeClique: string | null): EntradaPreparada {
+  return { body: MARCADOR_CLINICO, preview: MARCADOR_CLINICO, textoParaEfeitos: null, redigido: motivo, codigoDeClique };
 }
 
 export async function prepararEntradaDoContato(
@@ -63,15 +80,15 @@ export async function prepararEntradaDoContato(
   texto: string | null | undefined,
 ): Promise<EntradaPreparada> {
   const t = texto ?? null;
-  if (t === null || !t.trim()) return integra(t);
+  // Do texto cru, antes de qualquer decisão: todo ramo abaixo devolve o código.
+  const codigoDeClique = extrairCodigoDeClique(t);
+  if (t === null || !t.trim()) return integra(t, codigoDeClique);
 
   const conta = await lerRedacaoDaConta(admin, organizationId);
-  if (!conta.ok) {
-    return { body: MARCADOR_CLINICO, preview: MARCADOR_CLINICO, textoParaEfeitos: null, redigido: { motivo: "configuracao_indisponivel" } };
-  }
-  if (!conta.redacao) return integra(t);
+  if (!conta.ok) return redigida({ motivo: "configuracao_indisponivel" }, codigoDeClique);
+  if (!conta.redacao) return integra(t, codigoDeClique);
 
   const c = classificarConteudoClinico(t);
-  if (!c.clinico || !c.motivo) return integra(t);
-  return { body: MARCADOR_CLINICO, preview: MARCADOR_CLINICO, textoParaEfeitos: null, redigido: { motivo: c.motivo } };
+  if (!c.clinico || !c.motivo) return integra(t, codigoDeClique);
+  return redigida({ motivo: c.motivo }, codigoDeClique);
 }

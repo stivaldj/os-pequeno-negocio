@@ -100,6 +100,7 @@ export async function ingestFakeInbound(
     channelSessionId,
     texto: preparada.textoParaEfeitos,
     redigido: preparada.redigido,
+    codigoDeClique: preparada.codigoDeClique,
     nomeDoContato: e.profileName ?? null,
     origem: "fake_webhook",
   });

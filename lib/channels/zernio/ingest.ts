@@ -226,6 +226,7 @@ async function efeitosDaEntrada(
     channelSessionId: input.channelSessionId,
     texto: preparada ? preparada.textoParaEfeitos : msg.text,
     redigido: preparada?.redigido ?? null,
+    codigoDeClique: preparada?.codigoDeClique ?? null,
     nomeDoContato: msg.identity.displayName,
     requestId: input.requestId,
     origem: "zernio_webhook",

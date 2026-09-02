@@ -3,10 +3,19 @@
  * conversa, mensagem, marca na conversa e efeitos pós-entrada — a MESMA cadeia
  * dos canais reais, para uma prova local exercitar o que produção exercita.
  */
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ingestFakeInbound } from "@/lib/channels/fake/ingest";
 import { lerEnvelopeFake } from "@/lib/channels/fake/envelope";
 import { acceptsInboundWebhook, handleInboundWebhook } from "@/lib/channels/inbound";
+import { aplicarEfeitosPosEntrada } from "@/lib/channels/pos-entrada";
+import type * as PosEntrada from "@/lib/channels/pos-entrada";
+
+// Espião, não dublê: os efeitos continuam rodando de verdade — só se registra
+// o que o ingestor entregou a eles.
+vi.mock("@/lib/channels/pos-entrada", async (importOriginal) => {
+  const real = await importOriginal<typeof PosEntrada>();
+  return { ...real, aplicarEfeitosPosEntrada: vi.fn(real.aplicarEfeitosPosEntrada) };
+});
 
 const ops: { tabela: string; op: string; payload?: unknown }[] = [];
 let rpcResposta: Record<string, unknown> = {};
@@ -57,6 +66,36 @@ beforeEach(() => {
   insertErro = null;
   orgSettings = {};
   rpcResposta = { fn_upsert_wa_contact: "contact-1", fn_upsert_wa_conversation: "conv-1" };
+  vi.mocked(aplicarEfeitosPosEntrada).mockClear();
+});
+
+describe("Código de Clique na entrada (ADR-0016)", () => {
+  it("o código extraído pelo preparador chega aos efeitos pós-entrada, mesmo com o texto redigido", async () => {
+    orgSettings = { clinica: { redacao_clinica: true } };
+    const r = await ingestFakeInbound(admin, {
+      organizationId: "org-1",
+      channelSessionId: "sess-1",
+      evento: { from: CORPO.from, text: "tomo losartana (ref X7K3MQ)", externalId: "fake-in-7", sentAt: new Date() },
+    });
+    expect(r.status).toBe("ingested");
+    expect(aplicarEfeitosPosEntrada).toHaveBeenCalledTimes(1);
+    const entrada = vi.mocked(aplicarEfeitosPosEntrada).mock.calls[0]![1];
+    expect(entrada.codigoDeClique).toBe("X7K3MQ");
+    expect(entrada.redigido).toEqual({ motivo: "medicacao" });
+    // E os efeitos foram atrás do clique — o código desconhecido não bloqueia nada.
+    expect(ops.some((o) => o.tabela === "ad_clicks" && o.op === "select")).toBe(true);
+  });
+
+  it("sem código no texto, os efeitos recebem null e não consultam cliques", async () => {
+    await ingestFakeInbound(admin, {
+      organizationId: "org-1",
+      channelSessionId: "sess-1",
+      evento: { from: CORPO.from, text: CORPO.text, externalId: CORPO.external_id, sentAt: new Date() },
+    });
+    const entrada = vi.mocked(aplicarEfeitosPosEntrada).mock.calls[0]![1];
+    expect(entrada.codigoDeClique).toBeNull();
+    expect(ops.some((o) => o.tabela === "ad_clicks")).toBe(false);
+  });
 });
 
 describe("envelope do fake", () => {
