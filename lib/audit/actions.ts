@@ -430,6 +430,18 @@ export const AUDIT_ACTIONS = [
   "ads.proposal_decided",
   /** Conversão offline (`lib/ads/conversoes.ts`): a rodada devolveu ≥ 1 consulta paga ao Google. Metadata: enviadas/falhas/ignoradas. */
   "ads.conversion_uploaded",
+
+  // ─── Financeiro (Fase 6): extrato por OFX, categorias, contas e lembretes ───
+  /** Importação de Extrato (`lib/financeiro/importar.ts`): um arquivo OFX virou linhas. Metadata: importados/duplicados/descartados e as contas do arquivo. */
+  "financeiro.extrato_importado",
+  /** Categoria criada ou editada na tela Financeiro. Metadata: slug e tipo. */
+  "financeiro.categoria_salva",
+  /** Conta a Pagar ou a Receber criada. Metadata: direção, valor em centavos e vencimento. */
+  "financeiro.obrigacao_criada",
+  /** Conta a Pagar ou a Receber alterada — inclui a baixa. Metadata: direção, status novo e valor pago. */
+  "financeiro.obrigacao_alterada",
+  /** Lembrete de vencimento entregue ao Dono (`lib/financeiro/lembretes.ts`), por Conta. Rodada sem vencimento não audita. */
+  "financeiro.lembrete_enviado",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */

@@ -76,6 +76,34 @@ interface Excecao {
  */
 const PROVA_PROPRIA: readonly Excecao[] = [
   {
+    tabela: "ledger_categories",
+    razao:
+      "tests/invariants/financeiro-schema.test.ts prova isolamento cross-org e o gate de papel " +
+      "(viewer não escreve). Fora de TABLES porque a escrita exige manager e o usuário " +
+      "semeado em rls-isolation é agent (migration 0209).",
+  },
+  {
+    tabela: "ledger_entries",
+    razao:
+      "tests/invariants/financeiro-schema.test.ts prova isolamento cross-org e o gate de papel " +
+      "(viewer não escreve). Fora de TABLES porque a escrita exige manager e o usuário " +
+      "semeado em rls-isolation é agent (migration 0209).",
+  },
+  {
+    tabela: "ledger_balances",
+    razao:
+      "tests/invariants/financeiro-schema.test.ts prova isolamento cross-org e o gate de papel " +
+      "(viewer não escreve). Fora de TABLES porque a escrita exige manager e o usuário " +
+      "semeado em rls-isolation é agent (migration 0209).",
+  },
+  {
+    tabela: "financial_obligations",
+    razao:
+      "tests/invariants/financeiro-schema.test.ts prova isolamento cross-org e o gate de papel " +
+      "(viewer não escreve). Fora de TABLES porque a escrita exige manager e o usuário " +
+      "semeado em rls-isolation é agent (migration 0209).",
+  },
+  {
     tabela: "ad_accounts",
     razao:
       "tests/invariants/ads-schema.test.ts prova isolamento cross-org e o gate de papel " +
