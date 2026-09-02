@@ -12,6 +12,7 @@ import { capacidadeEhConhecida, modelCapabilities } from "@/lib/agent-engine/edg
 import { resolveOrgLlmConfig, type LlmEdgeConfig } from "@/lib/agent-engine/edge/llm/credentials";
 import { createDefaultRegistry } from "@/lib/agent-engine/edge/llm/providers";
 import { createPool } from "@/lib/agent-engine/db/pool";
+import { prepararEntradaDoContato } from "@/lib/clinica/redacao";
 import type { EventRow, HandlerResult } from "@/lib/event-log/dispatcher";
 import { deriveMediaText, type DeriveDeps } from "@/lib/messaging/media/derive";
 import { TIPOS_DERIVAVEIS } from "@/lib/messaging/media/derivable";
@@ -155,8 +156,13 @@ export async function deriveMessageMedia(row: EventRow): Promise<HandlerResult> 
     const deps = buildDeriveDeps(llm, openaiKey, row.organization_id);
 
     const text = await deriveMediaText(msg.type, buffer, msg.media_mime ?? "application/octet-stream", deps);
+    // O derivado é texto do Contato como qualquer outro: o contexto do lead o
+    // lê no lugar de `body`. Em Conta de saúde passa pelo mesmo preparador que
+    // os ingestores (ADR-0004, ADR-0019) — a transcrição crua de "tô com dor
+    // no peito" não pode entrar por esta porta quando não entra pela outra.
+    const preparada = await prepararEntradaDoContato(admin, msg.organization_id, text);
     await admin.from("messages")
-      .update({ media_derived_text: text, media_derived_status: "ready" })
+      .update({ media_derived_text: preparada.body, media_derived_status: "ready" })
       .eq("id", msg.id).eq("organization_id", msg.organization_id);
     return { consumer_key, status: "ok" };
   } catch (err) {
