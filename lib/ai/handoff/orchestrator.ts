@@ -37,6 +37,8 @@ export type HandoffReason =
   | "critical_stage"
   | "legal_mention"
   | "refund_mention"
+  /** Conteúdo Clínico reconhecido na entrada (ADR-0004): o texto foi descartado; só o fato da Passagem fica. */
+  | "clinical_mention"
   /**
    * O teto de gasto com IA parou o atendimento automático. NÃO é pedido do lead —
    * quem lê `last_handoff_reason` precisa distinguir, porque a primeira frase que

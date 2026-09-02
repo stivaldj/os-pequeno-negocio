@@ -11,6 +11,7 @@ import { acceptsInboundWebhook, handleInboundWebhook } from "@/lib/channels/inbo
 const ops: { tabela: string; op: string; payload?: unknown }[] = [];
 let rpcResposta: Record<string, unknown> = {};
 let insertErro: { code?: string; message: string } | null = null;
+let orgSettings: unknown = {};
 
 function chain(tabela: string, op: string, payload?: unknown): Record<string, unknown> {
   const proxy: Record<string, unknown> = new Proxy(
@@ -18,6 +19,7 @@ function chain(tabela: string, op: string, payload?: unknown): Record<string, un
     {
       get(_t, prop) {
         if (prop === "maybeSingle" || prop === "single") {
+          if (op === "select" && tabela === "organizations") return async () => ({ data: { settings: orgSettings }, error: null });
           if (op === "select") return async () => ({ data: null, error: null });
           return async () =>
             insertErro ? { data: null, error: insertErro } : { data: { id: "msg-1" }, error: null };
@@ -53,6 +55,7 @@ const SESSAO = { id: "sess-1", organization_id: "org-1", provider: "fake_channel
 beforeEach(() => {
   ops.length = 0;
   insertErro = null;
+  orgSettings = {};
   rpcResposta = { fn_upsert_wa_contact: "contact-1", fn_upsert_wa_conversation: "conv-1" };
 });
 
@@ -112,6 +115,24 @@ describe("ingestFakeInbound grava a cadeia inteira", () => {
       evento: { from: CORPO.from, text: CORPO.text, externalId: CORPO.external_id, sentAt: new Date() },
     });
     expect(r.status).toBe("failed");
+  });
+});
+
+describe("redação clínica na entrada (ADR-0004)", () => {
+  it("Conta de saúde: texto clínico vira marcador em body e preview, e os efeitos não recebem texto", async () => {
+    orgSettings = { clinica: { redacao_clinica: true } };
+    const r = await ingestFakeInbound(admin, {
+      organizationId: "org-1",
+      channelSessionId: "sess-1",
+      evento: { from: CORPO.from, text: "tô com dor no peito e tomo losartana", externalId: "fake-in-9", sentAt: new Date() },
+    });
+    expect(r.status).toBe("ingested");
+    const insert = ops.find((o) => o.tabela === "messages" && o.op === "insert")?.payload as Record<string, unknown>;
+    expect(insert.body).toBe("[conteúdo clínico redigido]");
+    expect((insert.metadata as Record<string, unknown>).redigido).toEqual({ motivo: "medicacao" });
+    const marca = ops.find((o) => o.op === "fn_mark_conversation_message")?.payload as Record<string, unknown>;
+    expect(marca.p_preview).toBe("[conteúdo clínico redigido]");
+    expect(JSON.stringify(ops)).not.toMatch(/losartana|peito/);
   });
 });
 

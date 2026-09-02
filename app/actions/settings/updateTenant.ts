@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { audit } from "@/lib/audit";
+import { aplicarConfiguracaoClinica } from "@/lib/clinica/config";
 import { tenantSchema, type TenantInput } from "@/lib/schemas/settings";
 import { loadAuthUser, resolveActiveOrg } from "@/lib/auth/server";
 import { ROLE_RANK } from "@/lib/auth/types";
@@ -62,10 +63,15 @@ export async function updateTenant(input: TenantInput): Promise<UpdateTenantResu
   if (readErr) return { ok: false, error: readErr.message };
 
   const currentSettings = (orgRow?.settings as Record<string, unknown> | null) ?? {};
-  const nextSettings = {
-    ...currentSettings,
-    lost_reasons_extra: parsed.data.lost_reasons_extra,
-  };
+  // O bloco clínico entra pelo merge de `lib/clinica/config.ts` (dois níveis,
+  // não destrutivo): a action nunca escreve o caminho `settings.clinica.*` à mão.
+  const nextSettings = aplicarConfiguracaoClinica(
+    {
+      ...currentSettings,
+      lost_reasons_extra: parsed.data.lost_reasons_extra,
+    },
+    { redacao: parsed.data.clinica_redacao },
+  );
 
   const { error } = await supabase
     .from("organizations")

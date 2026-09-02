@@ -30,6 +30,7 @@ import { extrairAtribuicaoMeta } from "@/lib/channels/atribuicao-de-anuncio-ofic
 import { estamparAtribuicaoDoContato } from "@/lib/leads/atribuicao-de-anuncio";
 
 import { aplicarEfeitosPosEntrada } from "../pos-entrada";
+import { prepararEntradaDoContato, type EntradaPreparada } from "@/lib/clinica/redacao";
 
 import { parseZernioInbound, type ZernioIdentity, type ZernioInboundMessage } from "./webhook";
 
@@ -107,6 +108,11 @@ export async function ingestZernioInbound(
   // (âncora preferida) e a saída só traz o telefone do participante. Resolver
   // pela thread primeiro fecha isso na origem, e de quebra deixa a ingestão
   // imune a qualquer identidade nova que o provider invente depois.
+  // Redação clínica ANTES de gravar (ADR-0004): só entrada, só texto do Contato.
+  const preparada: EntradaPreparada | null =
+    msg.direction === "inbound" ? await prepararEntradaDoContato(admin, input.organizationId, msg.text) : null;
+  const body = preparada ? preparada.body : msg.text;
+
   const existente = await conversaPelaThread(admin, input.organizationId, msg.conversationId);
   if (existente) {
     const inseridaNaExistente = await insertMessage(admin, {
@@ -115,6 +121,7 @@ export async function ingestZernioInbound(
       contactId: existente.contact_id,
       channelSessionId: input.channelSessionId,
       msg,
+      body,
     });
     // O telefone pode chegar agora e faltar no contato — vale gravar.
     if (msg.identity.phone) {
@@ -125,7 +132,7 @@ export async function ingestZernioInbound(
         .is("phone_number", null);
     }
     if (inseridaNaExistente !== "duplicate") {
-      await marcarConversa(admin, existente.id, msg);
+      await marcarConversa(admin, existente.id, { ...msg, text: body });
       if (msg.attachments[0]?.url) {
         await pedirPersistenciaDaMidia(
           admin,
@@ -134,7 +141,7 @@ export async function ingestZernioInbound(
           inseridaNaExistente,
         );
       }
-      await efeitosDaEntrada(admin, input, msg, existente.contact_id, existente.id, inseridaNaExistente);
+      await efeitosDaEntrada(admin, input, msg, existente.contact_id, existente.id, inseridaNaExistente, preparada);
     }
     return inseridaNaExistente === "duplicate"
       ? { status: "duplicate", conversationId: existente.id }
@@ -165,15 +172,16 @@ export async function ingestZernioInbound(
     contactId,
     channelSessionId: input.channelSessionId,
     msg,
+    body,
   });
 
   if (inserted === "duplicate") return { status: "duplicate", conversationId };
 
-  await marcarConversa(admin, conversationId, msg);
+  await marcarConversa(admin, conversationId, { ...msg, text: body });
   if (msg.attachments[0]?.url) {
     await pedirPersistenciaDaMidia(admin, input.organizationId, conversationId, inserted);
   }
-  await efeitosDaEntrada(admin, input, msg, contactId, conversationId, inserted);
+  await efeitosDaEntrada(admin, input, msg, contactId, conversationId, inserted, preparada);
   return { status: "ingested", conversationId, messageId: inserted };
 }
 
@@ -199,6 +207,7 @@ async function efeitosDaEntrada(
   contactId: string,
   conversationId: string,
   messageId: string,
+  preparada: EntradaPreparada | null = null,
 ): Promise<void> {
   if (msg.direction !== "inbound") return;
 
@@ -215,7 +224,8 @@ async function efeitosDaEntrada(
     conversationId,
     messageId,
     channelSessionId: input.channelSessionId,
-    texto: msg.text,
+    texto: preparada ? preparada.textoParaEfeitos : msg.text,
+    redigido: preparada?.redigido ?? null,
     nomeDoContato: msg.identity.displayName,
     requestId: input.requestId,
     origem: "zernio_webhook",
@@ -426,6 +436,8 @@ async function insertMessage(
     contactId: string;
     channelSessionId: string;
     msg: ZernioInboundMessage;
+    /** O que vai para `body`: já passou pelo preparador de Conteúdo Clínico. */
+    body: string | null;
   },
 ): Promise<string | "duplicate"> {
   const { msg } = input;
@@ -467,7 +479,7 @@ async function insertMessage(
       sent_via: "external_device",
       status: msg.direction === "outbound" ? (msg.status ?? "sent") : "delivered",
       type: temAnexo ? tipoDoAnexo(primeiro?.type) : "text",
-      body: msg.text,
+      body: input.body,
       // A URL do anexo NÃO é pública: é endpoint autenticado do provider, e a
       // plataforma descarta a mídia depois de um tempo. Ela é PONTEIRO, não
       // conteúdo — e é por isso que grava aqui e o worker baixa os bytes já.

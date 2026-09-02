@@ -40,6 +40,7 @@
  */
 import { audit } from "@/lib/audit";
 import { garantirLeadDaConversa } from "@/lib/leads/nascimento-do-lead";
+import { passarPorConteudoClinico } from "@/lib/clinica/passagem";
 import { logger } from "@/lib/logger";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import { ehPedidoDeOptOut } from "@/lib/opt-out/deteccao";
@@ -90,6 +91,12 @@ export interface EntradaDeMensagem {
   channelSessionId: string;
   /** O texto que o cliente escreveu — é onde se procura o pedido de saída. */
   texto: string | null;
+  /**
+   * Redação clínica (ADR-0004): quando o preparador redigiu a mensagem, só a
+   * categoria chega aqui — nunca o texto. Presente = a conversa vai para
+   * humano antes de qualquer despacho do Agente.
+   */
+  redigido?: { motivo: string } | null;
   /** Nome exibido pelo canal, quando houver. Serve para batizar o card novo. */
   nomeDoContato: string | null;
   /** Correlaciona a linha de auditoria com a request que a originou. */
@@ -124,6 +131,24 @@ export async function aplicarEfeitosPosEntrada(
     messageId: entrada.messageId,
     texto: entrada.texto,
   });
+  // Redação clínica (ADR-0004): a conversa vai para humano ANTES de qualquer
+  // despacho — o Agente não pode responder o que não pode ler.
+  if (entrada.redigido) {
+    try {
+      await passarPorConteudoClinico({
+        organizationId: entrada.organizationId,
+        conversationId: entrada.conversationId,
+        contactId: entrada.contactId,
+      });
+    } catch (err) {
+      logger.error("pos-entrada: Passagem por Conteúdo Clínico falhou — o Agente continua calado por não haver despacho", {
+        organization_id: entrada.organizationId,
+        conversation_id: entrada.conversationId,
+        detail: err instanceof Error ? err.message.slice(0, 160) : "desconhecido",
+      });
+    }
+    return;
+  }
   await pedirDespachoDoAgente(admin, entrada);
 }
 
