@@ -25,10 +25,15 @@ const messageRow = {
  */
 const bindingDeVisao: { provider: string; model_id: string; credential_id: string | null } | null = null;
 
+// A Conta que o preparador clínico lê (`organizations.settings`). Sem bloco
+// `clinica`, redação desligada — o comportamento dos casos herdados.
+const orgRow: { settings: unknown } = { settings: {} };
+
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({
     from: (tabela: string) => {
-      const linha = tabela === "ai_purpose_bindings" ? bindingDeVisao : messageRow;
+      const linha =
+        tabela === "ai_purpose_bindings" ? bindingDeVisao : tabela === "organizations" ? orgRow : messageRow;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const terminais: any = {
         maybeSingle: async () => ({ data: linha, error: null }),
@@ -92,7 +97,30 @@ describe("deriveMessageMedia", () => {
     updateEqMock.mockReset();
     messageRow.media_derived_status = null;
     messageRow.type = "audio";
+    orgRow.settings = {};
     vi.mocked(deriveMediaText).mockReset().mockResolvedValue("transcrição do áudio real");
+  });
+
+  it("em Conta de saúde, transcrição com Conteúdo Clínico grava o marcador, não o texto (ADR-0019)", async () => {
+    orgRow.settings = { clinica: { redacao_clinica: true } };
+    vi.mocked(deriveMediaText).mockResolvedValue("tô com dor no peito e tomo losartana");
+    const r = await deriveMessageMedia(eventRow());
+    expect(r.status).toBe("ok");
+    expect(updateEqMock).toHaveBeenCalledWith(
+      expect.objectContaining({ media_derived_text: "[conteúdo clínico redigido]", media_derived_status: "ready" }),
+    );
+    const gravado = JSON.stringify(updateEqMock.mock.calls);
+    expect(gravado).not.toContain("losartana");
+    expect(gravado).not.toContain("dor no peito");
+  });
+
+  it("em Conta de saúde, transcrição sem Conteúdo Clínico passa íntegra", async () => {
+    orgRow.settings = { clinica: { redacao_clinica: true } };
+    vi.mocked(deriveMediaText).mockResolvedValue("quero marcar consulta na quinta");
+    await deriveMessageMedia(eventRow());
+    expect(updateEqMock).toHaveBeenCalledWith(
+      expect.objectContaining({ media_derived_text: "quero marcar consulta na quinta", media_derived_status: "ready" }),
+    );
   });
 
   it("baixa a mídia, deriva e grava ready", async () => {
