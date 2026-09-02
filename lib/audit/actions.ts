@@ -402,6 +402,10 @@ export const AUDIT_ACTIONS = [
   // em `messages`, e a trilha não é lugar de Conteúdo Clínico (ADR-0004).
   // Rodada que não achou nada não audita.
   "clinica.ato_medico_suspeito",
+  // O lembrete de consulta (`lib/agenda/lembretes.ts`) saiu pela conversa do
+  // Paciente e `reminder_sent_at` foi marcado. Uma linha por lembrete enviado —
+  // rodada sem candidato (ou só com pulados) não audita.
+  "agenda.reminder_sent",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */

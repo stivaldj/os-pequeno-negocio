@@ -29,6 +29,7 @@ export const ROTINAS_ESPERADAS: readonly RotinaEsperada[] = [
   { nome: "agenda-google-refresh", periodoMinutos: 10 },
   { nome: "agenda-google-sync", periodoMinutos: 15 },
   { nome: "agenda-google-push", periodoMinutos: 5 },
+  { nome: "agenda-lembretes", periodoMinutos: 10 },
   { nome: "risk-watcher", periodoMinutos: 15 },
   { nome: "contact-phones", periodoMinutos: 30 },
   { nome: "contact-proposals-watcher", periodoMinutos: 60 },
