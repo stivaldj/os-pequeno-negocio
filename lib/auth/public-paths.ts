@@ -3,6 +3,9 @@
  * Match precedence: array order. First match wins.
  */
 export const PUBLIC_PATHS: RegExp[] = [
+  // Página de Captura de anúncio (ADR-0016): `/ir/<slug>` redireciona ao
+  // WhatsApp com o Código de Clique. Ancorada: só um segmento, nada por baixo.
+  /^\/ir\/[^/]+$/,
   /^\/$/,
   /^\/login(\/.*)?$/,
   /^\/signup$/,

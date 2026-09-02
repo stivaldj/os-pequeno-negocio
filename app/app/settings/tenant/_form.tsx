@@ -115,6 +115,20 @@ export function TenantForm({ initial }: Props) {
             </div>
           </div>
           <div className="space-y-2">
+            <Label htmlFor="dono_whatsapp">{t("WhatsApp do Dono")}</Label>
+            <Input
+              id="dono_whatsapp"
+              type="tel"
+              inputMode="tel"
+              placeholder="+5511999999999"
+              value={form.dono_whatsapp ?? ""}
+              onChange={(e) => set("dono_whatsapp", e.target.value || null)}
+            />
+            <p className="text-xs text-muted-foreground">
+              {t("Formato internacional. Recebe os avisos do produto pelo WhatsApp.")}
+            </p>
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="timezone">{t("Fuso horário")}</Label>
             <Select value={form.timezone} onValueChange={(v) => set("timezone", v)}>
               <SelectTrigger id="timezone">

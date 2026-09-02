@@ -15,6 +15,14 @@ const INGESTORES = [
   "lib/waha/ingest.ts",
 ];
 
+/**
+ * Os QUATRO que chamam `aplicarEfeitosPosEntrada` entregam o Código de Clique
+ * (ADR-0016) que o preparador extraiu do texto cru. O eco da coexistência
+ * (`gravar.ts`) fica de fora de propósito: é histórico e mensagem do app, e
+ * consumir código em mensagem antiga gastaria cliques de outra época.
+ */
+const INGESTORES_COM_EFEITOS = INGESTORES.filter((a) => !a.endsWith("coexistencia/gravar.ts"));
+
 describe("ingestores passam pela redação clínica", () => {
   for (const arquivo of INGESTORES) {
     it(`${arquivo} chama prepararEntradaDoContato e grava preparada.body`, () => {
@@ -23,4 +31,19 @@ describe("ingestores passam pela redação clínica", () => {
       expect(fonte, "body ainda vem do texto cru").toMatch(/body:\s*(preparada|entrada|input)\.body/);
     });
   }
+});
+
+describe("ingestores entregam o Código de Clique aos efeitos pós-entrada", () => {
+  for (const arquivo of INGESTORES_COM_EFEITOS) {
+    it(`${arquivo} passa codigoDeClique: preparada.codigoDeClique`, () => {
+      const fonte = readFileSync(arquivo, "utf8");
+      expect(fonte, "chama os efeitos pós-entrada").toContain("aplicarEfeitosPosEntrada(");
+      expect(fonte, "o código do preparador não chega aos efeitos").toMatch(/codigoDeClique:\s*preparada(\?\.|\.)codigoDeClique/);
+    });
+  }
+
+  it("o eco da coexistência NÃO consome código (mensagem antiga não gasta clique)", () => {
+    const fonte = readFileSync("lib/channels/meta/coexistencia/gravar.ts", "utf8");
+    expect(fonte).not.toContain("codigoDeClique");
+  });
 });

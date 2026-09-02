@@ -223,6 +223,7 @@ export async function ingestMetaInbound(
     channelSessionId: sessao.id,
     texto: preparada.redigido ? null : (e.text ?? null),
     redigido: preparada.redigido,
+    codigoDeClique: preparada.codigoDeClique,
     nomeDoContato: e.profileName ?? null,
     origem: "meta_webhook",
   });

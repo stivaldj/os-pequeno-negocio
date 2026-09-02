@@ -244,6 +244,18 @@ export const PONTOS_DE_IA: readonly PontoDeIa[] = [
     registraEm: "llm_calls",
   },
   {
+    id: "ads_agent",
+    rotulo: "Agente de Anúncios",
+    oQueFaz:
+      "Todo dia lê a Verba, as conversas atribuídas e as consultas pagas por campanha e propõe ao Dono o que fazer no Google Ads (ADR-0018).",
+    papel: "entender",
+    exige: {},
+    emissor: "lib/ads/agente/rodar.ts",
+    sintomaDeFalha:
+      "O Dono para de receber propostas de anúncio; a tela Anúncios fica sem novidades e ninguém percebe campanha ruim.",
+    registraEm: "llm_calls",
+  },
+  {
     id: "sentiment_classify",
     rotulo: "Medir o clima da conversa",
     oQueFaz:

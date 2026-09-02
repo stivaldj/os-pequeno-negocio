@@ -76,6 +76,48 @@ interface Excecao {
  */
 const PROVA_PROPRIA: readonly Excecao[] = [
   {
+    tabela: "ad_accounts",
+    razao:
+      "tests/invariants/ads-schema.test.ts prova isolamento cross-org e o gate de papel " +
+      "(viewer não escreve). Fora de TABLES porque a escrita exige manager e o usuário " +
+      "semeado em rls-isolation é agent (migration 0208).",
+  },
+  {
+    tabela: "ad_capture_links",
+    razao:
+      "tests/invariants/ads-schema.test.ts prova isolamento cross-org e o gate de papel " +
+      "(viewer não escreve). Fora de TABLES porque a escrita exige manager e o usuário " +
+      "semeado em rls-isolation é agent (migration 0208).",
+  },
+  {
+    tabela: "ad_clicks",
+    razao:
+      "tests/invariants/ads-schema.test.ts prova isolamento cross-org e o gate de papel " +
+      "(viewer não escreve). Fora de TABLES porque a escrita exige manager e o usuário " +
+      "semeado em rls-isolation é agent (migration 0208).",
+  },
+  {
+    tabela: "ad_spend",
+    razao:
+      "tests/invariants/ads-schema.test.ts prova isolamento cross-org e o gate de papel " +
+      "(viewer não escreve). Fora de TABLES porque a escrita exige manager e o usuário " +
+      "semeado em rls-isolation é agent (migration 0208).",
+  },
+  {
+    tabela: "ad_proposals",
+    razao:
+      "tests/invariants/ads-schema.test.ts prova isolamento cross-org e o gate de papel " +
+      "(viewer não escreve). Fora de TABLES porque a escrita exige manager e o usuário " +
+      "semeado em rls-isolation é agent (migration 0208).",
+  },
+  {
+    tabela: "ad_conversion_uploads",
+    razao:
+      "tests/invariants/ads-schema.test.ts prova isolamento cross-org e o gate de papel " +
+      "(viewer não escreve). Fora de TABLES porque a escrita exige manager e o usuário " +
+      "semeado em rls-isolation é agent (migration 0208).",
+  },
+  {
     tabela: "webhook_lead_captures",
     razao:
       "tests/invariants/historico-de-captacao-rls.test.ts prova isolamento " +

@@ -21,10 +21,20 @@ let ultimas: Record<string, Linha | null>;
 let primeiraLinha: string | null;
 const inserts: { tabela: string; payload: Record<string, unknown> }[] = [];
 const auditados: Record<string, unknown>[] = [];
+const avisosAoDono: string[] = [];
 
 vi.mock("@/lib/audit", () => ({
   audit: async (entrada: Record<string, unknown>) => {
     auditados.push(entrada);
+  },
+}));
+
+// O destinatário "dono" é módulo próprio (`lib/dono/`), testado lá com o seu
+// dublê; aqui só se prova que o vigia o CHAMA, com texto curto e sem segredo.
+vi.mock("@/lib/dono/destinatario", () => ({
+  enviarAosDonos: async (_admin: unknown, texto: string) => {
+    avisosAoDono.push(texto);
+    return { enviados: [], pulados: [] };
   },
 }));
 
@@ -90,6 +100,7 @@ beforeEach(() => {
   primeiraLinha = min(60 * 24 * 3);
   inserts.length = 0;
   auditados.length = 0;
+  avisosAoDono.length = 0;
 });
 
 describe("tolerância", () => {
@@ -108,6 +119,7 @@ describe("vigiar", () => {
     expect(r.ausentes).toEqual([]);
     expect(inserts).toEqual([]);
     expect(auditados).toEqual([]);
+    expect(avisosAoDono).toEqual([]);
   });
 
   it("última linha `ok` de channel-health (5 min) há 16 min → missing, job_dead e audit", async () => {
@@ -135,6 +147,14 @@ describe("vigiar", () => {
       resourceId: "job_runs-1",
     });
     expect((auditados[0]?.metadata as Record<string, unknown>).job_name).toBe("channel-health");
+
+    // O Dono também fica sabendo — pelo WhatsApp, curto, sem o corpo do
+    // inbox (que cita INTERNAL_SECRET e docker compose: instrução de operador,
+    // não de Dono).
+    expect(avisosAoDono).toHaveLength(1);
+    expect(avisosAoDono[0]).toContain("channel-health");
+    expect(avisosAoDono[0]).not.toContain("INTERNAL_SECRET");
+    expect(avisosAoDono[0]?.length).toBeLessThan(200);
   });
 
   it("silêncio de EXATAMENTE a tolerância ainda não é ausência (o limite é inclusivo)", async () => {
@@ -197,5 +217,6 @@ describe("vigiar", () => {
     expect(insertsEm("job_runs")).toHaveLength(2);
     expect(insertsEm("agent_inbox_items")).toHaveLength(2);
     expect(auditados).toHaveLength(2);
+    expect(avisosAoDono).toHaveLength(2);
   });
 });

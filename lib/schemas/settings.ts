@@ -9,6 +9,7 @@
 import { z } from "zod";
 
 import { ehHexValido } from "@/lib/branding/rampa";
+import { ehWhatsappValido } from "@/lib/dono/config";
 import { IDIOMAS } from "@/lib/i18n/idiomas";
 
 import { conversationTagSchema } from "./messaging";
@@ -107,6 +108,21 @@ export const tenantSchema = z.object({
    * `false`: Conta comum não redige nada.
    */
   clinica_redacao: z.boolean().default(false),
+  /**
+   * "WhatsApp do Dono": o número no qual o produto fala com quem paga —
+   * vigias, Agente de Anúncios, relatório das 8h. Persistido em
+   * `settings.dono.whatsapp` por `lib/dono/config.ts`, que é também quem
+   * valida (E.164): um regex novo aqui divergiria do leitor. Vazio → `null`
+   * (o campo foi limpo na tela).
+   */
+  dono_whatsapp: z
+    .string()
+    .trim()
+    .max(16)
+    .refine(ehWhatsappValido, { message: "Use o formato internacional, ex.: +5511999999999" })
+    .nullable()
+    .optional()
+    .or(z.literal("").transform(() => null)),
 });
 export type TenantInput = z.infer<typeof tenantSchema>;
 
