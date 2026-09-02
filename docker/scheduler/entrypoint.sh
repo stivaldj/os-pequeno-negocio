@@ -74,6 +74,7 @@ CRONS="
 # manda o que mudou). A volta é cara — varre calendário inteiro — e por isso
 # roda a cada 15.
 */5 * * * *|60|api/v1/cron/agenda-google-push
+*/10 * * * *|60|api/v1/cron/agenda-lembretes
 */15 * * * *|60|api/v1/cron/risk-watcher
 */30 * * * *|60|api/v1/cron/contact-phones
 17 * * * *|60|api/v1/cron/contact-proposals-watcher
