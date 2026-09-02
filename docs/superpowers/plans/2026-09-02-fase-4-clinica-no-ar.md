@@ -82,3 +82,15 @@ Issue: #22. Spec: `docs/spec/0003-relatorio-das-8h.md` (O dinheiro → Receita; 
 ## O que este plano não faz
 
 Não cria tabela `service_pricing` (colunas no tipo). Não cria gatilho de agenda nos fluxos de follow-up. Não cria tela nova (as duas existentes ganham campos). Não toca `inbound-turn.ts` nem `before-send.ts`. Não faz o push ao Google no POST do agendamento (continua no cron herdado).
+
+---
+
+## Desvios registrados na execução (02/09/2026)
+
+- **Seed do invariante do dinheiro usa slug próprio**: o gatilho de nova organização já semeia `consulta`, `atendimento` e `reuniao` em `calendar_event_types`; `on conflict do nothing` engolia o seed.
+- **`conversation_id` passa a ser gravado no `crm_book_appointment`** (última conversa do contato): a coluna existia desde a 0177 e ninguém a preenchia; o lembrete usa como atalho e mantém a busca por contato como caminho primário.
+- **`lib/agenda/dinheiro.ts`** concentra reais↔centavos e %↔pontos-base para tela e histórico não divergirem.
+- **`precoDoTipo` exportada de `lib/agenda/consulta.ts`** e `listaAgendamentos` traz `price_cents`/`paid_cents` — o `crm_list_appointments` vê o preço, nunca o valor pago.
+- **Lembrete**: recorte grosso no banco (30 dias, status, `reminder_sent_at is null`) e janela exata em memória, porque o PostgREST não compara `starts_at - reminder_minutes_before` com o relógio; marca idempotente com `.is(reminder_sent_at, null)`; falha de envio não marca.
+- **Embarque** não cria usuário: Profissional sem conta na org vai para `pulado` com `usuario_inexistente`. Ação `clinica.embarque_executado` no audit.
+- **Dois agentes de execução morreram com a sessão** (Tarefas 3 e 5); o trabalho foi recuperado das worktrees e fechado à mão.

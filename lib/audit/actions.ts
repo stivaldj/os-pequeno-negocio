@@ -408,6 +408,8 @@ export const AUDIT_ACTIONS = [
   // Paciente e `reminder_sent_at` foi marcado. Uma linha por lembrete enviado —
   // rodada sem candidato (ou só com pulados) não audita.
   "agenda.reminder_sent",
+  /** O Embarque da clínica rodou: uma linha por execução, com o relatório (feito/pulado) no metadata. */
+  "clinica.embarque_executado",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */

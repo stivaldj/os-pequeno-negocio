@@ -1,0 +1,53 @@
+{
+  "_leia_me": "A Clínica Humana como está no site (docs/research/clinica-humana.md, lido em 28/08/2026). Nomes reais dos Profissionais, e-mails, preços (price_cents), margens (margin_bps), lembretes e convênios são do Dono: preencha e rode `pnpm tsx scripts/clinica/embarque.ts embarque.json`. Chaves começadas em `_` são ignoradas.",
+  "organization_id": "00000000-0000-4000-8000-000000000000",
+  "dono": {
+    "nome": "Nome do Dono",
+    "whatsapp": "+55 65 0000-0000"
+  },
+  "endereco": "Av. Brigadeiro Eduardo Gomes, 508 — Centro-Sul, Várzea Grande-MT, CEP 78125-265",
+  "expediente_da_clinica": {
+    "timezone": "America/Cuiaba",
+    "windows": [
+      { "dow": 1, "start": "07:00", "end": "19:30" },
+      { "dow": 2, "start": "07:00", "end": "19:30" },
+      { "dow": 3, "start": "07:00", "end": "19:30" },
+      { "dow": 4, "start": "07:00", "end": "19:30" },
+      { "dow": 5, "start": "07:00", "end": "19:30" }
+    ]
+  },
+  "convenios": [],
+  "profissionais": [
+    {
+      "_nota": "O e-mail precisa ser de um usuário já convidado para a organização; sem ele o Embarque pula (usuario_inexistente). Sem `expediente`, vale o da clínica.",
+      "email": "profissional@exemplo.invalid",
+      "nome": "Dra. Exemplo"
+    }
+  ],
+  "servicos": [
+    { "slug": "consulta-clinica-geral", "nome": "Clínica geral", "duracao_minutos": 30, "categoria": "consulta" },
+    { "slug": "cirurgia-geral", "nome": "Cirurgia geral", "duracao_minutos": 30, "categoria": "consulta" },
+    { "slug": "psiquiatria", "nome": "Psiquiatria", "duracao_minutos": 30, "categoria": "consulta" },
+    { "slug": "ginecologia-obstetricia", "nome": "Ginecologia e obstetrícia", "duracao_minutos": 30, "categoria": "consulta" },
+    { "slug": "pediatria", "nome": "Pediatria", "duracao_minutos": 30, "categoria": "consulta" },
+    { "slug": "ortopedia", "nome": "Ortopedia", "duracao_minutos": 30, "categoria": "consulta" },
+    { "slug": "cardiologia", "nome": "Cardiologia", "duracao_minutos": 30, "categoria": "consulta" },
+    { "slug": "laboratorio", "nome": "Laboratório", "duracao_minutos": 30, "categoria": "procedimento" },
+    { "slug": "pilates", "nome": "Pilates", "duracao_minutos": 30, "categoria": "outro" },
+    { "slug": "hidroginastica", "nome": "Hidroginástica", "duracao_minutos": 30, "categoria": "outro" },
+    { "slug": "nutricao", "nome": "Nutrição", "duracao_minutos": 30, "categoria": "consulta" },
+    { "slug": "psicologia", "nome": "Psicologia", "duracao_minutos": 30, "categoria": "consulta" },
+    { "slug": "fisioterapia", "nome": "Fisioterapia", "duracao_minutos": 30, "categoria": "procedimento" },
+    { "slug": "danca", "nome": "Dança", "duracao_minutos": 30, "categoria": "outro" }
+  ],
+  "_exemplo_de_servico_completo": {
+    "slug": "consulta-clinica-geral",
+    "nome": "Clínica geral",
+    "duracao_minutos": 30,
+    "categoria": "consulta",
+    "price_cents": 20000,
+    "margin_bps": 6000,
+    "profissional_email": "profissional@exemplo.invalid",
+    "lembrete_minutos_antes": 1440
+  }
+}
