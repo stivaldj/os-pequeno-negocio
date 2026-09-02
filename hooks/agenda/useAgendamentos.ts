@@ -25,6 +25,8 @@ interface AgendamentoListado {
   donoId: string | null;
   contatoId: string | null;
   contatoNome: string | null;
+  precoCents?: number | null;
+  pagoCents?: number | null;
 }
 
 export interface RecorteDaGrade {
@@ -88,6 +90,9 @@ export function useAgendamentos(recorte: RecorteDaGrade | null) {
           // Campo novo é optional e a rota pode ainda não mandá-lo — `?? undefined`
           // mantém o wire tolerante a servidor mais velho que o cliente.
           quemSeraAtendido: a.contatoNome ?? undefined,
+          // ADR-0017: o preço do tipo é o que o "Realizado" pré-preenche.
+          precoCents: a.precoCents ?? null,
+          pagoCents: a.pagoCents ?? null,
         }));
       } catch (err) {
         showApiError(err);

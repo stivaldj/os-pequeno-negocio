@@ -1,6 +1,7 @@
 import { addDays, startOfWeek } from "date-fns";
 import { redirect } from "next/navigation";
 
+import { precoDoTipo } from "@/lib/agenda/consulta";
 import { enderecoDeRetorno, faltaParaConectarOGoogle, googleEstaConfigurado } from "@/lib/agenda/google/config";
 import { PROVEDOR_GOOGLE } from "@/lib/agenda/tipos";
 import { requireAuth, resolveActiveOrg } from "@/lib/auth/server";
@@ -98,7 +99,7 @@ export default async function AgendaPage() {
     supabase
       .from("calendar_appointments")
       .select(
-        "id, title, starts_at, ends_at, status, owner_user_id, contact_id, event_type_id, location_kind, contacts(name, display_name)",
+        "id, title, starts_at, ends_at, status, owner_user_id, contact_id, event_type_id, location_kind, paid_cents, contacts(name, display_name), calendar_event_types(price_cents)",
       )
       .eq("organization_id", activeOrg.orgId)
       .gte("starts_at", inicio.toISOString())
@@ -237,6 +238,10 @@ export default async function AgendaPage() {
         // (`app/app/lgpd/requests/[id]/PreviewPanel.tsx`); as duas colunas são
         // reescritas pelo cascade de LGPD, então nenhuma vaza titular anonimizado.
         quemSeraAtendido: nomeDoContato(a.contacts),
+        // ADR-0017: a primeira pintura já traz o preço do tipo, para o
+        // "Realizado" pré-preencher antes de o hook assumir.
+        precoCents: precoDoTipo(a.calendar_event_types),
+        pagoCents: a.paid_cents === null || a.paid_cents === undefined ? null : Number(a.paid_cents),
       })) as AgendamentoDaTela[]).concat(
         /**
          * A ocupação do Google entra na MESMA lista, com `origem: "google_sync"`.

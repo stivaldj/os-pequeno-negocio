@@ -338,6 +338,14 @@ export interface AgendamentoListado {
   donoId: string | null;
   contatoId: string | null;
   contatoNome: string | null;
+  /**
+   * ADR-0017: o preço do TIPO, em centavos — nulo quando o Dono não cadastrou.
+   * É o que a tela pré-preenche ao registrar "Realizado" e o que o agente vê
+   * ao listar compromissos. Vem do embed `calendar_event_types(price_cents)`.
+   */
+  precoCents: number | null;
+  /** O que foi pago, em centavos — nulo até o desfecho com valor. Não vai ao modelo. */
+  pagoCents: number | null;
 }
 
 export interface ParametrosDaLista {
@@ -384,6 +392,23 @@ function nomeDoContato(
 ): string | null {
   const alvo = Array.isArray(c) ? c[0] : c;
   return alvo?.name ?? alvo?.display_name ?? null;
+}
+
+/** Centavos ou nulo — nunca `NaN`, nunca 0 no lugar de "não informado". */
+function centavosOuNulo(v: unknown): number | null {
+  return v === null || v === undefined ? null : Number(v);
+}
+
+/**
+ * O mesmo embed objeto-ou-array, para o preço do tipo. Exportado porque a
+ * primeira pintura de `app/app/agenda/page.tsx` lê o mesmo embed — e a segunda
+ * cópia de um "objeto ou array" é a que erra quando o PostgREST muda de forma.
+ */
+export function precoDoTipo(
+  t: { price_cents: unknown } | { price_cents: unknown }[] | null | undefined,
+): number | null {
+  const alvo = Array.isArray(t) ? t[0] : t;
+  return centavosOuNulo(alvo?.price_cents);
 }
 
 export async function listaAgendamentos(
@@ -434,7 +459,7 @@ export async function listaAgendamentos(
   let q = supabase
     .from("calendar_appointments")
     .select(
-      "id, title, starts_at, ends_at, time_zone, status, owner_user_id, contact_id, contacts(name, display_name)",
+      "id, title, starts_at, ends_at, time_zone, status, owner_user_id, contact_id, paid_cents, contacts(name, display_name), calendar_event_types(price_cents)",
     )
     .eq("organization_id", organizationId)
     .order("starts_at", { ascending: true })
@@ -498,6 +523,8 @@ export async function listaAgendamentos(
       // dizer "você já tem consulta marcada, Maria". Mesma coluna que a tela do
       // produto lê, mesmo precedente de `name` antes de `display_name`.
       contatoNome: nomeDoContato(l.contacts),
+      precoCents: precoDoTipo(l.calendar_event_types),
+      pagoCents: centavosOuNulo(l.paid_cents),
     })),
   };
 }

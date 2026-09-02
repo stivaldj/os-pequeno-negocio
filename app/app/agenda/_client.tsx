@@ -643,7 +643,9 @@ export function AgendaClient({
         // Sem cerimônia de confirmação, ao contrário de cancelar: registrar
         // desfecho não avisa ninguém e se desfaz voltando o status. Cancelar
         // exige motivo porque é o que a equipe lê ao ver o horário vago.
-        onRealizado={(id) => desfecho.mutate({ id, status: "completed" })}
+        // ADR-0017: o histórico pergunta quanto foi pago; em branco vem
+        // `undefined` e o hook NÃO manda `paid_cents` — dado faltante, não zero.
+        onRealizado={(id, pagoCents) => desfecho.mutate({ id, status: "completed", paid_cents: pagoCents })}
         onFaltou={(id) => desfecho.mutate({ id, status: "no_show" })}
       />
 
