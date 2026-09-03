@@ -6317,13 +6317,39 @@ export const DICIONARIO: Traducoes = {
   "Ação de conversão": { es: "Acción de conversión" },
   "Salvar conta": { es: "Guardar cuenta" },
   "Nível de autonomia": { es: "Nivel de autonomía" },
-  "Nível 1 — só propõe": { es: "Nivel 1 — solo propone" },
-  "Nível 2 — aplica com aprovação": { es: "Nivel 2 — aplica con aprobación" },
-  "Nível 3 — aplica dentro dos limites": { es: "Nivel 3 — aplica dentro de los límites" },
   "Último sync": { es: "Última sincronización" },
   "Ainda não sincronizou": { es: "Aún no sincronizó" },
   "Último erro": { es: "Último error" },
   "Conta de anúncios salva.": { es: "Cuenta de anuncios guardada." },
+
+  // ─── Fase 8 (ADR-0018): Nível 2/3 configuráveis pelo painel, e o agente escreve de verdade ───
+  //
+  // Os rótulos dos níveis mudaram: a versão da Fase 5 dizia "Nível 2 — aplica
+  // com aprovação" e "Nível 3 — aplica dentro dos limites", invertido em
+  // relação à ADR — quem espera aprovação é o Nível 1. As chaves velhas saem
+  // do dicionário junto com o texto que elas traduziam.
+  "Nível 1 — só observa e propõe": { es: "Nivel 1 — solo observa y propone" },
+  "Nível 2 — ajusta orçamento e pausa dentro dos limites": { es: "Nivel 2 — ajusta presupuesto y pausa dentro de los límites" },
+  "Nível 3 — cria e edita anúncios (ainda não ligado)": { es: "Nivel 3 — crea y edita anuncios (todavía no activado)" },
+  "Autonomia do agente": { es: "Autonomía del agente" },
+  "Sem piso e teto configurados, o agente NÃO ajusta orçamento sozinho — mesmo no Nível 2.": { es: "Sin piso y techo configurados, el agente NO ajusta presupuesto solo — incluso en el Nivel 2." },
+  "Nível": { es: "Nivel" },
+  "Piso de orçamento (R$/dia)": { es: "Piso de presupuesto (R$/día)" },
+  "sem limite": { es: "sin límite" },
+  "Teto de orçamento (R$/dia)": { es: "Techo de presupuesto (R$/día)" },
+  "Custo máx. por conversa (R$)": { es: "Costo máx. por conversación (R$)" },
+  "Salvar autonomia": { es: "Guardar autonomía" },
+  "Mudar o Nível de Autonomia?": { es: "¿Cambiar el Nivel de Autonomía?" },
+  "O agente passa a mudar orçamento e pausar campanha SOZINHO, dentro dos limites acima — sem esperar sua aprovação.": { es: "El agente pasa a cambiar presupuesto y pausar campaña SOLO, dentro de los límites de arriba — sin esperar su aprobación." },
+  "O agente volta a só observar e propor; nenhuma mudança chega ao Google sem você aprovar.": { es: "El agente vuelve a solo observar y proponer; ningún cambio llega a Google sin que usted apruebe." },
+  "Histórico de ações": { es: "Historial de acciones" },
+  "O que o agente fez de verdade no Google Ads, e o que foi recusado ou falhou.": { es: "Lo que el agente hizo de verdad en Google Ads, y lo que fue rechazado o falló." },
+  "Nada ainda — sem escrita do Nível 2, sem histórico.": { es: "Nada todavía — sin escritura del Nivel 2, sin historial." },
+  "Orçamento da campanha": { es: "Presupuesto de la campaña" },
+  "Campanha pausada": { es: "Campaña pausada" },
+  "Escrita recusada": { es: "Escritura rechazada" },
+  "Escrita falhou no Google Ads": { es: "Escritura falló en Google Ads" },
+  "Conta de anúncios atualizada": { es: "Cuenta de anuncios actualizada" },
   "Campanhas": { es: "Campañas" },
   "Quanto sobra por real gasto, depois da Margem Declarada. Linha amarela = dia sem gasto no período.": { es: "Cuánto sobra por real gastado, después del Margen Declarado. Fila amarilla = día sin gasto en el período." },
   "7 dias": { es: "7 días" },

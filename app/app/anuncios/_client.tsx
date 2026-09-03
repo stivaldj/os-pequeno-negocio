@@ -6,11 +6,23 @@ import { useTagDeIdioma } from "@/hooks/i18n/useLocaleDeData";
 import * as React from "react";
 import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,9 +31,11 @@ import {
   useContaDeAnuncios,
   useCriarLink,
   useDecidirProposta,
+  useHistoricoDeAcoesDeAnuncios,
   useLinksDeCaptura,
   usePropostasPendentes,
   useSalvarConta,
+  type AcaoDoHistorico,
   type Campanha,
   type ContaDeAnuncios,
   type DadosDaConta,
@@ -32,6 +46,7 @@ import {
   type Proposta,
 } from "@/hooks/ads/useAnuncios";
 import { copyToClipboard } from "@/lib/clipboard";
+import { formatCentsBRL, parseReaisToCents } from "@/lib/money";
 import { Copy } from "@/lib/ui/icons";
 
 /**
@@ -47,11 +62,27 @@ function moeda(cents: number, tag: string): string {
 
 // ─── Conta ─────────────────────────────────────────────────────────────────
 
+/**
+ * ADR-0018, texto exato — a versão anterior destes rótulos ("aplica com
+ * aprovação" no Nível 2, "aplica dentro dos limites" no Nível 3) não batia
+ * com a ADR: quem aprova antes de aplicar é o Nível 1 (`propor`); o Nível 2 é
+ * quem aplica sozinho, dentro de piso e teto.
+ */
 const NIVEL_DE_AUTONOMIA: Record<number, string> = {
-  1: "Nível 1 — só propõe",
-  2: "Nível 2 — aplica com aprovação",
-  3: "Nível 3 — aplica dentro dos limites",
+  1: "Nível 1 — só observa e propõe",
+  2: "Nível 2 — ajusta orçamento e pausa dentro dos limites",
+  3: "Nível 3 — cria e edita anúncios (ainda não ligado)",
 };
+
+/** Converte um input de reais (vazio = sem limite) para centavos ou `null`. */
+function centsOuNull(reais: string): number | null {
+  return parseReaisToCents(reais);
+}
+
+/** `"" `= sem limite; senão o valor em reais com vírgula, para reabrir o input já preenchido. */
+function reaisDoLimite(cents: number | null): string {
+  return cents === null ? "" : (cents / 100).toFixed(2).replace(".", ",");
+}
 
 export function ContaCard({
   conta,
@@ -68,6 +99,12 @@ export function ContaCard({
   const [conversionCustomerId, setConversionCustomerId] = React.useState(conta?.conversion_customer_id ?? "");
   const [conversionAction, setConversionAction] = React.useState(conta?.conversion_action ?? "");
 
+  const [nivelPendente, setNivelPendente] = React.useState<1 | 2 | 3>((conta?.autonomy_level as 1 | 2 | 3) ?? 1);
+  const [piso, setPiso] = React.useState(reaisDoLimite(conta?.budget_floor_cents ?? null));
+  const [teto, setTeto] = React.useState(reaisDoLimite(conta?.budget_ceiling_cents ?? null));
+  const [custoMaximo, setCustoMaximo] = React.useState(reaisDoLimite(conta?.max_cost_per_conversation_cents ?? null));
+  const [confirmando, setConfirmando] = React.useState(false);
+
   function enviar(e: React.FormEvent) {
     e.preventDefault();
     onSalvar({
@@ -75,6 +112,28 @@ export function ContaCard({
       conversion_customer_id: conversionCustomerId.trim() || null,
       conversion_action: conversionAction.trim() || null,
     });
+  }
+
+  function salvarAutonomia() {
+    if (!conta) return;
+    onSalvar({
+      customer_id: conta.customer_id,
+      conversion_customer_id: conta.conversion_customer_id,
+      conversion_action: conta.conversion_action,
+      autonomy_level: nivelPendente,
+      budget_floor_cents: centsOuNull(piso),
+      budget_ceiling_cents: centsOuNull(teto),
+      max_cost_per_conversation_cents: centsOuNull(custoMaximo),
+    });
+    setConfirmando(false);
+  }
+
+  function aoClicarEmSalvarAutonomia() {
+    if (conta && nivelPendente !== conta.autonomy_level) {
+      setConfirmando(true);
+    } else {
+      salvarAutonomia();
+    }
   }
 
   return (
@@ -146,6 +205,70 @@ export function ContaCard({
             </dd>
           </div>
         </dl>
+
+        {conta && (
+          <div className="space-y-3 rounded-md border p-3">
+            <div>
+              <p className="text-sm font-medium">{t("Autonomia do agente")}</p>
+              <p className="text-sm text-muted-foreground">
+                {t("Sem piso e teto configurados, o agente NÃO ajusta orçamento sozinho — mesmo no Nível 2.")}
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-4">
+              <div className="space-y-1">
+                <Label htmlFor="conta-autonomia-input">{t("Nível")}</Label>
+                <Select value={String(nivelPendente)} onValueChange={(v) => setNivelPendente(Number(v) as 1 | 2 | 3)}>
+                  <SelectTrigger id="conta-autonomia-input" data-testid="conta-autonomia-input">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {([1, 2, 3] as const).map((n) => (
+                      <SelectItem key={n} value={String(n)} data-testid={`conta-autonomia-opcao-${n}`}>
+                        {t(NIVEL_DE_AUTONOMIA[n] ?? `Nível ${n}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="conta-piso">{t("Piso de orçamento (R$/dia)")}</Label>
+                <Input id="conta-piso" data-testid="conta-piso" value={piso} onChange={(e) => setPiso(e.target.value)} placeholder={t("sem limite")} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="conta-teto">{t("Teto de orçamento (R$/dia)")}</Label>
+                <Input id="conta-teto" data-testid="conta-teto" value={teto} onChange={(e) => setTeto(e.target.value)} placeholder={t("sem limite")} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="conta-custo-maximo">{t("Custo máx. por conversa (R$)")}</Label>
+                <Input id="conta-custo-maximo" data-testid="conta-custo-maximo" value={custoMaximo} onChange={(e) => setCustoMaximo(e.target.value)} placeholder={t("sem limite")} />
+              </div>
+            </div>
+
+            <AlertDialog open={confirmando} onOpenChange={setConfirmando}>
+              <Button type="button" size="sm" data-testid="conta-salvar-autonomia" disabled={salvando} onClick={aoClicarEmSalvarAutonomia}>
+                {salvando ? t("Salvando…") : t("Salvar autonomia")}
+              </Button>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{t("Mudar o Nível de Autonomia?")}</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {t(NIVEL_DE_AUTONOMIA[nivelPendente] ?? `Nível ${nivelPendente}`)}
+                    {". "}
+                    {nivelPendente >= 2
+                      ? t("O agente passa a mudar orçamento e pausar campanha SOZINHO, dentro dos limites acima — sem esperar sua aprovação.")
+                      : t("O agente volta a só observar e propor; nenhuma mudança chega ao Google sem você aprovar.")}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel data-testid="conta-autonomia-cancelar">{t("Cancelar")}</AlertDialogCancel>
+                  <AlertDialogAction data-testid="conta-autonomia-confirmar" onClick={(e) => { e.preventDefault(); salvarAutonomia(); }}>
+                    {t("Confirmar")}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -371,6 +494,67 @@ export function PropostasPendentes({
   );
 }
 
+// ─── Histórico de ações (Fase 8) ────────────────────────────────────────────
+
+/**
+ * Sem tabela própria: lê `api_audit_log` filtrado por `action=ads.`
+ * (`useHistoricoDeAcoesDeAnuncios`, `GET /api/v1/audit`). Cada escrita real do
+ * Nível 2 já audita com o suficiente para uma frase — este mapa só traduz.
+ */
+function descreverAcao(a: AcaoDoHistorico, t: (s: string) => string): string {
+  const m = a.metadata;
+  const campanha = typeof m.campaign_id === "string" ? m.campaign_id : null;
+  switch (a.action) {
+    case "ads.orcamento_ajustado": {
+      const de = typeof m.orcamento_anterior_cents === "number" ? formatCentsBRL(m.orcamento_anterior_cents) : "—";
+      const para = typeof m.novo_orcamento_cents === "number" ? formatCentsBRL(m.novo_orcamento_cents) : "—";
+      return `${t("Orçamento da campanha")} ${campanha ?? "—"}: ${de} → ${para}`;
+    }
+    case "ads.campanha_pausada":
+      return `${t("Campanha pausada")}: ${campanha ?? "—"}${typeof m.motivo === "string" ? ` — ${m.motivo}` : ""}`;
+    case "ads.escrita_recusada":
+      return `${t("Escrita recusada")}: ${campanha ?? "—"} (${String(m.motivo ?? m.acao ?? "")})`;
+    case "ads.escrita_falhou":
+      return `${t("Escrita falhou no Google Ads")}: ${campanha ?? "—"} (${String(m.code ?? "")})`;
+    case "ads.nivel_alterado":
+      return `${t("Nível de autonomia")}: ${String(m.nivel_anterior ?? "—")} → ${String(m.nivel_novo ?? "—")}`;
+    case "ads.account_updated":
+      return t("Conta de anúncios atualizada");
+    default:
+      return a.action;
+  }
+}
+
+export function HistoricoDeAcoes({ acoes }: { acoes: AcaoDoHistorico[] }) {
+  const t = useT();
+  const tag = useTagDeIdioma();
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("Histórico de ações")}</CardTitle>
+        <CardDescription>{t("O que o agente fez de verdade no Google Ads, e o que foi recusado ou falhou.")}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {acoes.length === 0 ? (
+          <p data-testid="historico-vazio" className="text-sm text-muted-foreground">
+            {t("Nada ainda — sem escrita do Nível 2, sem histórico.")}
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {acoes.map((a) => (
+              <li key={a.id} data-testid={`historico-${a.id}`} className="flex flex-wrap items-baseline gap-2 text-sm">
+                <span className="text-muted-foreground">{new Date(a.created_at).toLocaleString(tag, { hour12: false })}</span>
+                <span>{descreverAcao(a, t)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Fiação ────────────────────────────────────────────────────────────────
 
 export function AnunciosClient() {
@@ -384,6 +568,7 @@ export function AnunciosClient() {
   const campanhas = useCampanhas(dias);
   const propostas = usePropostasPendentes();
   const decidir = useDecidirProposta();
+  const historico = useHistoricoDeAcoesDeAnuncios();
 
   return (
     <div className="space-y-6">
@@ -433,6 +618,8 @@ export function AnunciosClient() {
           onDecidir={(id, status) => decidir.mutate({ id, status })}
         />
       )}
+
+      {historico.isLoading ? <Skeleton className="h-32 w-full" /> : <HistoricoDeAcoes acoes={historico.data ?? []} />}
     </div>
   );
 }

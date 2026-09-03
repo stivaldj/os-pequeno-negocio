@@ -14,7 +14,9 @@
  *   • Dia incompleto é destacado: a linha carrega o marcador e o aviso.
  *   • A URL do link de captura é copiada pelo helper `copyToClipboard`
  *     (regra do repo: nunca `navigator.clipboard` direto).
- *   • Nível de autonomia NÃO é editável: a tela mostra, não tem campo.
+ *   • Nível de autonomia (Fase 8, ADR-0018) é editável, mas mudar de nível
+ *     precisa de confirmação — o agente passa a gastar sozinho.
+ *   • Piso/teto/custo máximo em branco viram `null`, nunca zero.
  *   • Aprovar/Recusar mandam o id e o status certos — e nada mais.
  */
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -23,6 +25,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const copiar = vi.fn(async (_texto: string) => true);
 vi.mock("@/lib/clipboard", () => ({ copyToClipboard: (t: string) => copiar(t) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+
+// O `Select` do controle de autonomia (Fase 8) é Radix — ele chama
+// `scrollIntoView` ao abrir a lista, que o jsdom não implementa. Sem isto o
+// componente inteiro desmonta com uma exceção não tratada.
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => {};
+}
+if (!Element.prototype.hasPointerCapture) {
+  Element.prototype.hasPointerCapture = () => false;
+}
+if (!Element.prototype.releasePointerCapture) {
+  Element.prototype.releasePointerCapture = () => {};
+}
 
 import { ContaCard, LinksDeCaptura, PropostasPendentes, TabelaDeCampanhas } from "@/app/app/anuncios/_client";
 import type { Campanha, ContaDeAnuncios, LinkDeCaptura, Proposta } from "@/hooks/ads/useAnuncios";
@@ -122,17 +137,19 @@ describe("cartão da Conta", () => {
     conversion_action: "Lead WhatsApp",
     currency: "BRL",
     autonomy_level: 1,
+    budget_floor_cents: 3000,
+    budget_ceiling_cents: 8000,
+    max_cost_per_conversation_cents: null,
     status: "error",
     last_sync_at: "2026-09-02T08:00:00Z",
     last_error: "invalid customer id",
   };
 
-  it("mostra nível de autonomia, último sync e erro SÓ leitura; salva os três campos editáveis", () => {
+  it("mostra nível de autonomia, último sync e erro; salva os três campos do formulário principal", () => {
     const onSalvar = vi.fn();
     render(<ContaCard conta={CONTA} salvando={false} onSalvar={onSalvar} />);
     expect(screen.getByTestId("conta-autonomia").textContent).toContain("1");
     expect(screen.getByTestId("conta-erro").textContent).toContain("invalid customer id");
-    expect(screen.queryByTestId("conta-autonomia-input")).toBeNull();
 
     fireEvent.change(screen.getByTestId("conta-customer-id"), { target: { value: "1112223334" } });
     fireEvent.change(screen.getByTestId("conta-conversion-customer-id"), { target: { value: "9998887776" } });
@@ -145,12 +162,60 @@ describe("cartão da Conta", () => {
     });
   });
 
-  it("sem Conta ainda, o formulário nasce vazio e o campo opcional em branco vai como null", () => {
+  it("sem Conta ainda, o formulário nasce vazio e o campo opcional em branco vai como null; sem controle de autonomia (nada para promover)", () => {
     const onSalvar = vi.fn();
     render(<ContaCard conta={null} salvando={false} onSalvar={onSalvar} />);
+    expect(screen.queryByTestId("conta-autonomia-input")).toBeNull();
     fireEvent.change(screen.getByTestId("conta-customer-id"), { target: { value: "1234567890" } });
     fireEvent.submit(screen.getByTestId("form-conta"));
     expect(onSalvar).toHaveBeenCalledWith({ customer_id: "1234567890", conversion_customer_id: null, conversion_action: null });
+  });
+
+  describe("Fase 8 — autonomia do agente", () => {
+    it("o controle de nível existe (Fase 8 tornou o Nível 2/3 configuráveis pelo painel)", () => {
+      render(<ContaCard conta={CONTA} salvando={false} onSalvar={vi.fn()} />);
+      expect(screen.getByTestId("conta-autonomia-input")).toBeTruthy();
+    });
+
+    it("salvar SEM mudar o nível não abre confirmação — manda a Conta inteira mais os limites em centavos", () => {
+      const onSalvar = vi.fn();
+      render(<ContaCard conta={CONTA} salvando={false} onSalvar={onSalvar} />);
+      fireEvent.click(screen.getByTestId("conta-salvar-autonomia"));
+      expect(screen.queryByTestId("conta-autonomia-confirmar")).toBeNull();
+      expect(onSalvar).toHaveBeenCalledWith({
+        customer_id: "1234567890",
+        conversion_customer_id: null,
+        conversion_action: "Lead WhatsApp",
+        autonomy_level: 1,
+        budget_floor_cents: 3000,
+        budget_ceiling_cents: 8000,
+        max_cost_per_conversation_cents: null,
+      });
+    });
+
+    it("piso e teto em branco viram null — nunca 0, que fingiria limite zero", () => {
+      const onSalvar = vi.fn();
+      render(<ContaCard conta={{ ...CONTA, budget_floor_cents: null, budget_ceiling_cents: null }} salvando={false} onSalvar={onSalvar} />);
+      fireEvent.click(screen.getByTestId("conta-salvar-autonomia"));
+      expect(onSalvar).toHaveBeenCalledWith(
+        expect.objectContaining({ budget_floor_cents: null, budget_ceiling_cents: null }),
+      );
+    });
+
+    it("mudar o nível pede confirmação, e só chama onSalvar depois de confirmar", async () => {
+      const onSalvar = vi.fn();
+      render(<ContaCard conta={CONTA} salvando={false} onSalvar={onSalvar} />);
+
+      fireEvent.click(screen.getByTestId("conta-autonomia-input"));
+      const opcaoNivel2 = await screen.findByTestId("conta-autonomia-opcao-2");
+      fireEvent.click(opcaoNivel2);
+
+      fireEvent.click(screen.getByTestId("conta-salvar-autonomia"));
+      expect(onSalvar).not.toHaveBeenCalled();
+      const confirmar = await screen.findByTestId("conta-autonomia-confirmar");
+      fireEvent.click(confirmar);
+      expect(onSalvar).toHaveBeenCalledWith(expect.objectContaining({ autonomy_level: 2 }));
+    });
   });
 });
 
