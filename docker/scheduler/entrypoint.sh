@@ -85,7 +85,15 @@ CRONS="
 7 * * * *|60|api/v1/cron/rotinas-vigia
 23 * * * *|60|api/v1/cron/clinica-vigia
 10 3 * * *|120|api/v1/cron/ads-spend-sync
-0 7 * * *|120|api/v1/cron/ads-agent
+# O resumo diário do Agente de Anúncios cai no WhatsApp do Dono: rodar.ts
+# termina em enviarAoDono SEMPRE — até rodada sem proposta manda uma linha.
+# Por isso o horário aqui é hora de acordar alguém, não detalhe de operação.
+# Este contêiner roda com TZ: UTC (docker-compose.prod.yml), então 10:00 UTC
+# é 07:00 em Brasília. Estava em 07:00 UTC, que é 04:00 no Brasil — a rodada
+# funcionava e o Dono acordava com ela. Fica depois do ads-spend-sync (03:10
+# UTC), que é de onde vem o gasto do dia anterior, e uma hora antes do
+# relatório das 8h da Fase 7, que lê as propostas desta rodada.
+0 10 * * *|120|api/v1/cron/ads-agent
 40 3 * * *|120|api/v1/cron/ads-conversion-upload
 "
 
