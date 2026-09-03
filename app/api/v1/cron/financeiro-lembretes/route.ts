@@ -1,7 +1,8 @@
 /**
  * GET /api/v1/cron/financeiro-lembretes
  *
- * Uma vez por dia, às 07:20, o Dono de cada Conta recebe pelo WhatsApp o que
+ * Uma vez por dia, às 10:20 UTC — 07:20 em Brasília, porque o contêiner do
+ * scheduler roda com `TZ: UTC` —, o Dono de cada Conta recebe pelo WhatsApp o que
  * vence hoje e o que já venceu — antes do Relatório das 8h, de propósito. A
  * regra vive em `lib/financeiro/lembretes.ts`; esta rota só autentica, resolve
  * o dia e chama. Quem audita é a lib, por Conta: rodada sem vencimento não

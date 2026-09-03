@@ -7,7 +7,7 @@
  * 1. Lê, de uma vez e para TODAS as Contas, as obrigações `open` com
  *    `due_on <= hoje` que ainda não foram lembradas HOJE.
  * 2. Agrupa por Conta e monta UM texto curto por Conta — não uma mensagem por
- *    boleto: cinco linhas de WhatsApp às 7h20 é aviso; vinte é ruído que o
+ *    boleto: cinco linhas de WhatsApp de manhã é aviso; vinte é ruído que o
  *    Dono aprende a ignorar, e aí o lembrete deixa de existir na prática.
  * 3. Manda por `enviarAoDono` (`lib/dono/`), que resolve contato, conversa e
  *    canal e NUNCA lança — devolve `{ ok: false, motivo }`.
@@ -95,8 +95,9 @@ interface LinhaDeObrigacao {
 }
 
 /**
- * O dia corrente em UTC, `YYYY-MM-DD`. Serve ao cron das 07:20: o Brasil está
- * ATRÁS de UTC, então às 7h20 UTC ainda é o mesmo dia civil aqui — e `due_on`
+ * O dia corrente em UTC, `YYYY-MM-DD`. Serve ao cron das 10:20 UTC (07:20 em
+ * Brasília): o Brasil está ATRÁS de UTC, então de manhã ainda é o mesmo dia
+ * civil aqui — e `due_on`
  * é `date` (sem fuso) dos dois lados da comparação.
  */
 export function diaCorrenteUtc(agora: Date = new Date()): string {

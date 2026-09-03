@@ -93,7 +93,11 @@ CRONS="
 10 3 * * *|120|api/v1/cron/ads-spend-sync
 0 7 * * *|120|api/v1/cron/ads-agent
 40 3 * * *|120|api/v1/cron/ads-conversion-upload
-20 7 * * *|120|api/v1/cron/financeiro-lembretes
+# Lembrete de vencimento ao Dono. O horario e UTC porque este container roda
+# com TZ: UTC (docker-compose.prod.yml): 10:20 UTC e 07:20 em Brasilia. A
+# versao anterior deste plano dizia 07:20 e teria disparado 04:20 no Brasil,
+# acordando o Dono de madrugada. Fica antes do relatorio das 8h da Fase 7.
+20 10 * * *|120|api/v1/cron/financeiro-lembretes
 "
 
 # CRONTAB_PATH é ponto de injeção do teste (tests/shell/scheduler-entrypoint.test.sh).
