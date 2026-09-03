@@ -243,3 +243,32 @@ Molde: `tests/prova/ads.prova.ts` (imports dinâmicos, `afirmar`/`passo` de `scr
 ## O que este plano não faz
 
 Não toca `paid_cents` da agenda nem qualquer coisa de receita por paciente (ADR-0017). Não toca `lib/agent-engine/`, `inbound-turn.ts` nem `lib/channels/`. Não cria env var. Não conecta banco por API nem Open Finance (ADR-0008). Não faz conciliação automática entre lançamento e obrigação — a baixa é manual pela tela, e `ledger_entry_id` existe para quando a conciliação nascer. Não lê OFX de investimento (`INVSTMTMSGSRSV1`), que é outra ordem de grandeza de spec. Não monta o Relatório das 8h — a Fase 7 consome `calcularCaixa` e `vencimentosDoDia` e nunca recalcula. Não cria tabela `payables` nem `receivables` separadas (decisão 4). Não versiona extrato de terceiro sem licença (decisão 2).
+
+---
+
+## Desvios registrados na execução (02/09/2026)
+
+**Dois defeitos reais que a execução encontrou e o plano não previa.**
+
+- **O Lembrete acordaria o Dono às 4h20.** O plano marcava `20 7 * * *`, e o contêiner do scheduler roda com `TZ: UTC` (`docker-compose.prod.yml:222`): 07:20 UTC é 04:20 em Brasília. Movido para `20 10 * * *` (07:20 no horário do Dono), com o porquê comentado no `entrypoint.sh`. **O mesmo defeito existe na Fase 5, já mergeada**: `ads-agent` roda `0 7 * * *` = 04:00 no Brasil e também termina em `enviarAoDono`. Não corrigido aqui — é arquivo de outra fase.
+- **`pnpm build` ficou vermelho por causa da própria sintaxe do OFX.** O extrator do Tailwind varre com regex e trata qualquer `[algo:algo]` como propriedade arbitrária: a sintaxe de fuso `[-3:BRT]`, documentada em `lib/financeiro/ofx/normalizar.ts` e usada como fixture nos testes, virava `.\[-3\:BRT\] { -3: BRT; }` no `globals.css`. Curado estreitando o `content` do `tailwind.config.ts` para o que pode conter classe (teste nenhum renderiza CSS de produção; o parser de OFX não tem uma linha de JSX), com a medição no comentário.
+
+**Acréscimo de escopo.** A Tarefa 6 constatou que nenhuma rota listava `ledger_entries`, e o bloco `UltimosLancamentos` precisava. `GET /api/v1/financeiro/lancamentos` entrou na Tarefa 8 — quem constrói a tela conhece o contrato de que ela precisa.
+
+**Schema (Tarefa 2).** UUID de seed do invariante virou `fc600000-…`: o plano propunha `fi600000-…` e `i` não é hexadecimal. A `unique` de `ledger_balances` ganhou nome explícito (`ledger_balances_conta_tipo_dia_key`) — o automático passaria de 63 caracteres e o Postgres o truncaria, e o invariante casa a constraint pelo nome.
+
+**Parser (Tarefa 1).** `saldo_ilegivel` cobre também `DTASOF` ilegível (mesmo desfecho, distinguido pelo `contexto`). `OFX_MAX_LANCAMENTOS` trunca com um `descartado` em vez de lançar: já há resultado parcial útil, e recusar o arquivo inteiro perderia o extrato do Dono. O tokenizer faz uma pré-varredura das tags fechadas para desambiguar folha vazia de agregado — sem isso um `<MEMO>` vazio engoliria o `<FITID>` seguinte **em silêncio**, e a transação perderia a chave. `chaveOrigem` é decidida sobre **todas** as transações da conta, inclusive as descartadas: honrar o `FITID` é propriedade do arquivo do banco, não do subconjunto que sobreviveu ao parse.
+
+**Importação (Tarefa 3).** `por_conteudo` conta o **arquivo**, não o que entrou — na reimportação nada entra, e o Dono continua precisando saber que aquela conta está frágil. `categoriaDe` devolve o `id` (o `slug` já está gasto como critério de desempate). `OpcoesDaImportacao` ganhou `requestId?`/`actorUserId?`, senão o audit nasceria sem correlação nem autor. Erro de insert que não é `23505` vira `descartado`, não derruba o arquivo. Saldos são deduplicados antes do upsert (dois saldos iguais no mesmo comando fazem o Postgres recusar o lote inteiro).
+
+**Rota de upload (Tarefa 4).** A checagem de conteúdo é `lerCabecalho` **antes** de `importarExtrato`, não um `try/catch` em volta: embrulhar tudo em 422 faria uma queda do Postgres sair para o Dono como "seu extrato está corrompido", e ele passaria a tarde reexportando um arquivo certo. O teste roda em ambiente `node`, não jsdom — medido: no jsdom o `instanceof File` da rota (o `File` do undici) nunca casa, e **todos** os casos passariam provando o contrário do que afirmam.
+
+**Rotas CRUD (Tarefa 6).** `PUT` em `/categorias`, não `POST`: a identidade é o `slug` e a gravação é upsert. `proximos7` virou `proximos_7_dias` no fio (JSON é snake_case). `direction` não é alterável no `PATCH` — trocá-la moveria dinheiro de lado no Relatório sem registro. `ledger_entry_id` fica fora da API inteira enquanto a conciliação não nascer.
+
+**Cron (Tarefa 7).** `diaCorrenteUtc` resolve o dia em UTC; às 10:20 UTC o Brasil está no mesmo dia civil, mas **a função vira o dia às 21h locais** — quem a chamar à noite (uma tela, a Fase 7) vê "hoje" um dia à frente. Registrado, não corrigido: resolver por `organizations.timezone` é fase futura. Falha do `UPDATE` da marca não derruba a rodada — lançar calaria o lembrete de todas as outras Contas por causa do erro de banco de uma.
+
+**Caixa (Tarefa 5).** Interfaces de entrada em camelCase, como `lib/ads/sobra.ts`; o mapeamento das linhas snake_case fica com quem lê o banco. `proximos7` é disjunto de `vencemHoje` — sobrepor faria a tela somar o mesmo boleto duas vezes.
+
+**Tela (Tarefa 8).** A baixa mora em `ContasCadastradas` e `VencimentosDoDia` é só leitura: o botão nos dois lugares duplicaria a ação sobre a mesma linha. Direção da conta é um par de botões e não um `Select` do Radix, que o jsdom não consegue exercitar — com botões o bloco fica testável de verdade.
+
+**Texto da issue.** A #24 diz "Lembrete ao Dono via `crm_send_whatsapp_message`"; usamos `enviarAoDono`, que termina no mesmo `sendMessageHandler` mas já resolve contato, conversa e sessão.
