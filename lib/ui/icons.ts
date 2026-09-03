@@ -136,4 +136,6 @@ export {
   Megaphone,
   // financeiro (Fase 6): a porta da tela do Financeiro — o extrato vem do banco
   Bank,
+  // relatório das 8h (Fase 7): a porta da tela do Relatório
+  Newspaper,
 } from "@phosphor-icons/react/dist/ssr";

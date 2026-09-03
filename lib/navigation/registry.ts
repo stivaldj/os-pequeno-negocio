@@ -25,6 +25,7 @@ import {
   ListChecks,
   Lock,
   Megaphone,
+  Newspaper,
   Palette,
   Plugs,
   PlugsConnected,
@@ -480,6 +481,20 @@ export const NAV_DESTINATIONS: NavDestination[] = [
     description:
       "Caixa por conta a partir do extrato OFX do banco, contas a pagar e a receber, e o que vence hoje.",
     icon: Bank,
+    group: "analise",
+    minRole: "manager",
+  },
+  {
+    // Sem `sidebar: true` até a prova de realidade da Fase 7 fechar (José e o
+    // Dono recebem o relatório real) — mesmo padrão de Anúncios e Financeiro
+    // ao entrar. A porta é o hub de Análise e o ⌘K.
+    //
+    // `manager`: o relatório carrega caixa e vencimentos, o mesmo dado que a
+    // tela Financeiro já protege.
+    href: "/app/relatorio",
+    label: "Relatório",
+    description: "O histórico do relatório diário que chega ao WhatsApp do Dono às 8h.",
+    icon: Newspaper,
     group: "analise",
     minRole: "manager",
   },

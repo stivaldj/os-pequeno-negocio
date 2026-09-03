@@ -88,6 +88,16 @@ const FORA_DE_INTERFACE: Record<string, string> = {
   // da interface faria um documento de conformidade mudar de forma conforme
   // quem apertou o botão.
   "lib/lgpd/pdf-renderer.tsx": "documento legal brasileiro: a data acompanha a lei, não a interface",
+
+  // ─── Relatório das 8h: WhatsApp ao Dono, não tela ───
+  //
+  // O horário do compromisso entra no TEXTO que vira `daily_reports.body` e sai
+  // pelo WhatsApp via `enviarAoDono` — conteúdo gravado e mandado por um cron,
+  // mesma fronteira do `kpis`. O texto inteiro do relatório (como o de
+  // `lib/financeiro/lembretes.ts` e `lib/ads/agente/rodar.ts`) já é português
+  // fixo: não há provider de idioma num cron, e o Dono é quem recebe a
+  // mensagem, não quem está com uma tela aberta.
+  "lib/relatorio/agenda.ts": "horário do compromisso no texto do WhatsApp ao Dono — conteúdo gravado por um cron, mesma fronteira do kpis",
 };
 
 function arquivos(dir: string, acc: string[] = []): string[] {

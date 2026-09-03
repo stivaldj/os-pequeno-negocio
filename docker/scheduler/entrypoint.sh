@@ -106,6 +106,12 @@ CRONS="
 # versao anterior deste plano dizia 07:20 e teria disparado 04:20 no Brasil,
 # acordando o Dono de madrugada. Fica antes do relatorio das 8h da Fase 7.
 20 10 * * *|120|api/v1/cron/financeiro-lembretes
+# O Relatório das 8h (Fase 7): resumo diário ao Dono — atendimentos, agenda,
+# ads, caixa e vencimentos. Termina em enviarAoDono, então é hora de acordar
+# gente: 11:00 UTC = 08:00 em Brasília, vinte minutos depois do lembrete de
+# vencimento (07:20) e uma hora depois do ads-agent (07:00) — os dois já
+# rodaram e o relatório lê o que eles produziram no mesmo dia.
+0 11 * * *|120|api/v1/cron/relatorio-diario
 "
 
 # CRONTAB_PATH é ponto de injeção do teste (tests/shell/scheduler-entrypoint.test.sh).
