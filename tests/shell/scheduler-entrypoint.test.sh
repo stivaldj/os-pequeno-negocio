@@ -19,6 +19,11 @@
 #
 # 3. FALHA FECHADA SEM SEGREDO. Sem INTERNAL_SECRET os crons responderiam 401 e
 #    nada aconteceria — sem erro, sem log, sem sintoma. O script recusa subir.
+#
+# 4. QUEM ESCREVE AO DONO ACORDA ELE NA HORA CERTA. O contêiner roda em UTC, e
+#    um cron que termina em `enviarAoDono` tem hora civil, não hora de máquina.
+#    O ads-agent viveu uma fase inteira em `0 7 * * *` — 04:00 em Brasília —
+#    com todos os gates verdes, porque nenhum olhava a hora.
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 
@@ -62,6 +67,36 @@ check "as $ROTAS_CODIGO rotas do código estão no crontab (achei $ROTAS_CRONTAB
   test "$ROTAS_CODIGO" -eq "$ROTAS_CRONTAB"
 check "uma linha por cron, nenhuma vazia" \
   test "$(grep -c . "$TMP/crontab")" -eq "$(wc -l < "$TMP/crontab" | tr -d ' ')"
+
+# 4. CRON QUE ESCREVE AO DONO CAI NA HORA CIVIL DELE.
+#
+# O contêiner roda com TZ: UTC (docker-compose.prod.yml). Para um lote isso é
+# indiferente; para um cron que termina em `enviarAoDono` a hora é "que horas
+# alguém é acordado". O `ads-agent` foi para produção em `0 7 * * *` e mandou
+# WhatsApp ao Dono às 4h da manhã durante uma fase inteira, com TODOS os gates
+# verdes — porque nenhum deles olhava a hora. Este bloco olha.
+#
+# A tabela diz a INTENÇÃO em Brasília; a conversão para UTC é feita aqui, para
+# que ninguém precise fazer +3 de cabeça ao ler ou ao registrar um cron novo.
+# O +3 é constante: o Brasil não tem horário de verão desde 2019 (Decreto
+# 9.772/2019). Se isso voltar, este é o lugar de consertar — uma linha.
+# Cron de madrugada (retenção, sync de catálogo) não entra: ele não fala com
+# ninguém, e a madrugada é onde ele deve mesmo estar.
+HUMANOS="
+ads-agent|7|0
+financeiro-lembretes|7|20
+"
+echo "scheduler: cron que escreve ao Dono cai na hora civil de Brasília"
+while IFS='|' read -r rota hora minuto; do
+  [ -n "$rota" ] || continue
+  ESPERADO_CRON="$minuto $(( (hora + 3) % 24 )) * * *"
+  # Ancorado no fim da rota para que `ads-agent` não case com um `ads-agent-v2`
+  # futuro. Rota ausente ou renomeada deixa ATUAL vazio e REPROVA — o modo de
+  # falha que importa é este, não o de hora errada.
+  ATUAL_CRON="$(grep -E "api/v1/cron/${rota}\"" "$TMP/crontab" | head -1 | cut -d' ' -f1-5)"
+  check "${rota}: '${ESPERADO_CRON}' UTC = $(printf '%02d:%02d' "$hora" "$minuto") em Brasília (achei '${ATUAL_CRON:-NADA}')" \
+    test "$ATUAL_CRON" = "$ESPERADO_CRON"
+done <<< "$HUMANOS"
 
 echo "scheduler: o segredo atravessa o sh do crond intacto"
 # Os três caracteres que quebram interpolação ingênua, de uma vez só.
