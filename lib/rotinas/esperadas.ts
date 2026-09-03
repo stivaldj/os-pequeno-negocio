@@ -42,4 +42,5 @@ export const ROTINAS_ESPERADAS: readonly RotinaEsperada[] = [
   { nome: "ads-spend-sync", periodoMinutos: 1440 },
   { nome: "ads-agent", periodoMinutos: 1440 },
   { nome: "ads-conversion-upload", periodoMinutos: 1440 },
+  { nome: "financeiro-lembretes", periodoMinutos: 1440 },
 ];

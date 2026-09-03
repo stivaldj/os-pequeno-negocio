@@ -53,6 +53,12 @@ SEGREDO_SEGURO="$(printf '%s' "$INTERNAL_SECRET" | sed "s/'/'\\\\''/g")"
 # calendário, sempre. Colar as duas obrigaria a escolher entre renovar raro
 # demais (e a agenda morre) ou sincronizar caro demais (e gasta cota do cliente).
 #
+# O LEMBRETE DE VENCIMENTO às 07:20, e não em qualquer horário da madrugada: o
+# Dono precisa saber o que vence hoje ANTES de o dia começar, e antes do
+# Relatório das 8h. 07:20 está livre — o vizinho mais próximo é o ads-agent das
+# 07:00, e os dois falam com o mesmo WhatsApp; vinte minutos de folga evitam
+# que as duas mensagens cheguem coladas.
+#
 # ⚠️ E o comentário fica AQUI, fora da string: dentro de CRONS= ele não seria
 # comentário, seria DADO — e crase em prosa dentro de aspas duplas o shell
 # EXECUTA. Foi o que quebrou o entrypoint na primeira tentativa desta linha.
@@ -87,6 +93,7 @@ CRONS="
 10 3 * * *|120|api/v1/cron/ads-spend-sync
 0 7 * * *|120|api/v1/cron/ads-agent
 40 3 * * *|120|api/v1/cron/ads-conversion-upload
+20 7 * * *|120|api/v1/cron/financeiro-lembretes
 "
 
 # CRONTAB_PATH é ponto de injeção do teste (tests/shell/scheduler-entrypoint.test.sh).
