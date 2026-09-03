@@ -3,11 +3,26 @@ import type { Config } from "tailwindcss";
 const config: Config = {
   // Strategy: attribute selector to allow runtime swap via <html data-theme="dark">.
   darkMode: ["class", "[data-theme='dark']"],
+  // O extrator do Tailwind não entende TypeScript: ele varre o arquivo inteiro
+  // com regex e trata QUALQUER `[algo:algo]` como propriedade arbitrária —
+  // comentário, string de teste e nome de variável inclusive. Medido nesta
+  // base: `"20170831230000[-3:BRT]"`, que é a sintaxe de fuso do OFX (spec
+  // §3.2.8.1) documentada em `lib/financeiro/ofx/normalizar.ts` e usada como
+  // fixture nos testes dele, virava `.\[-3\:BRT\] { -3: BRT; }` no
+  // `globals.css` e derrubava `pnpm build` com CSS sintaticamente inválido.
+  //
+  // A cura é varrer só o que PODE conter classe, e as duas exclusões abaixo
+  // são verdadeiras por construção, não conveniência:
+  //   - teste nenhum renderiza para o CSS de produção;
+  //   - `lib/financeiro/ofx/` é um parser puro de bytes, sem uma linha de JSX.
+  // Quem puser classe do Tailwind num desses lugares está no lugar errado.
   content: [
     "./app/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
     "./lib/**/*.{ts,tsx}",
     "./hooks/**/*.{ts,tsx}",
+    "!./**/*.test.{ts,tsx}",
+    "!./lib/financeiro/ofx/**",
   ],
   theme: {
     container: {

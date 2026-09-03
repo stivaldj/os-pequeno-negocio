@@ -134,4 +134,6 @@ export {
   ArrowsOutSimple,
   // anúncios (Fase 5): a porta da tela de Anúncios no registro de navegação
   Megaphone,
+  // financeiro (Fase 6): a porta da tela do Financeiro — o extrato vem do banco
+  Bank,
 } from "@phosphor-icons/react/dist/ssr";

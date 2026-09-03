@@ -2,6 +2,7 @@ import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
 
 import { ROLE_RANK, type Role } from "@/lib/auth/types";
 import {
+  Bank,
   Bell,
   BookOpen,
   Brain,
@@ -463,6 +464,22 @@ export const NAV_DESTINATIONS: NavDestination[] = [
     label: "Anúncios",
     description: "Google Ads: quanto cada campanha devolve por real gasto, links de captura e propostas do agente.",
     icon: Megaphone,
+    group: "analise",
+    minRole: "manager",
+  },
+  {
+    // Sem `sidebar: true`, como Anúncios entrou e pelo mesmo motivo: a Fase 6
+    // ainda está entrando, e a porta é o hub de Análise e o ⌘K. Vai ao sidebar
+    // quando a prova de realidade fechar (o José importar o extrato do banco da
+    // Clínica Humana e conferir o saldo contra o app do banco).
+    //
+    // `manager` porque é dinheiro — o mesmo papel que a rota de extratos exige
+    // para subir arquivo. Quem atende no WhatsApp não vê o caixa da casa.
+    href: "/app/financeiro",
+    label: "Financeiro",
+    description:
+      "Caixa por conta a partir do extrato OFX do banco, contas a pagar e a receber, e o que vence hoje.",
+    icon: Bank,
     group: "analise",
     minRole: "manager",
   },

@@ -53,6 +53,12 @@ SEGREDO_SEGURO="$(printf '%s' "$INTERNAL_SECRET" | sed "s/'/'\\\\''/g")"
 # calendário, sempre. Colar as duas obrigaria a escolher entre renovar raro
 # demais (e a agenda morre) ou sincronizar caro demais (e gasta cota do cliente).
 #
+# O LEMBRETE DE VENCIMENTO às 07:20, e não em qualquer horário da madrugada: o
+# Dono precisa saber o que vence hoje ANTES de o dia começar, e antes do
+# Relatório das 8h. 07:20 está livre — o vizinho mais próximo é o ads-agent das
+# 07:00, e os dois falam com o mesmo WhatsApp; vinte minutos de folga evitam
+# que as duas mensagens cheguem coladas.
+#
 # ⚠️ E o comentário fica AQUI, fora da string: dentro de CRONS= ele não seria
 # comentário, seria DADO — e crase em prosa dentro de aspas duplas o shell
 # EXECUTA. Foi o que quebrou o entrypoint na primeira tentativa desta linha.
@@ -95,6 +101,11 @@ CRONS="
 # relatório das 8h da Fase 7, que lê as propostas desta rodada.
 0 10 * * *|120|api/v1/cron/ads-agent
 40 3 * * *|120|api/v1/cron/ads-conversion-upload
+# Lembrete de vencimento ao Dono. O horario e UTC porque este container roda
+# com TZ: UTC (docker-compose.prod.yml): 10:20 UTC e 07:20 em Brasilia. A
+# versao anterior deste plano dizia 07:20 e teria disparado 04:20 no Brasil,
+# acordando o Dono de madrugada. Fica antes do relatorio das 8h da Fase 7.
+20 10 * * *|120|api/v1/cron/financeiro-lembretes
 "
 
 # CRONTAB_PATH é ponto de injeção do teste (tests/shell/scheduler-entrypoint.test.sh).
