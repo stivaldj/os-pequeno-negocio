@@ -118,6 +118,20 @@ const FORMATADOR = new Intl.DateTimeFormat("en-CA", {
  * 01/09; em UTC o dia seria 2017-09-01, e o certo é 2017-08-31. O nome do fuso
  * entre colchetes mente com frequência (bancos mandam `[-3:GMT]`); o número,
  * não — só o número é lido.
+ *
+ * **Meia-noite cravada é data civil, tenha offset ou não.** Medido no extrato
+ * real da Cora (`Cora SCD SA`, FID 0403): todo lançamento vem
+ * `"20250901000000[0:GMT]"`, e o `DTSTART`/`DTEND` do mesmo arquivo declaram a
+ * janela de um dia só, 01/09 — mas convertido como instante, 00:00Z vira 21h de
+ * 31/08 em Brasília e o lançamento MUDA DE MÊS. Um extrato em que os três
+ * lançamentos caem no mesmo `000000` não está medindo hora nenhuma: está
+ * escrevendo data e preenchendo o resto com zero. O `DTSERVER` do mesmo arquivo
+ * traz `105313`, hora de verdade — é a diferença entre carimbo e data.
+ *
+ * O caso escapou de 169 testes porque a única fixture com offset usava
+ * `[-3:BRT]` e o único `[0:GMT]` do teste era `030000` — 03:00Z é meia-noite
+ * exata em Brasília, o valor em que a conversão não move o dia e portanto o
+ * único que esconde o defeito.
  */
 export function diaDoDtposted(raw: string): string | null {
   const m = raw.trim().match(DTPOSTED);
@@ -136,7 +150,8 @@ export function diaDoDtposted(raw: string): string | null {
   if (horas > 24 || minutos > 59 || segundos > 60) return null;
 
   const offset = m[8];
-  if (offset === undefined) {
+  const meiaNoiteCravada = horas === 0 && minutos === 0 && segundos === 0 && Number(m[7] ?? "0") === 0;
+  if (offset === undefined || meiaNoiteCravada) {
     return `${m[1]}-${m[2]}-${m[3]}`;
   }
 

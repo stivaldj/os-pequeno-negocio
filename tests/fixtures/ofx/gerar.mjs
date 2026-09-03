@@ -444,6 +444,97 @@ const OFX2 = crlf([
   "</OFX>",
 ]);
 
+/**
+ * Cora — o formato que quebrou a leitura de data em produção.
+ *
+ * Anonimizado de um extrato real da Clínica Humana (01/09/2025): conta, CNPJs,
+ * nomes e valores trocados; a FORMA preservada byte a byte, porque é ela que
+ * prova o defeito. Três propriedades reais e nenhuma decorativa:
+ *
+ *   - `000000[0:GMT]` em TODO carimbo — lançamentos, DTSTART, DTEND e
+ *     LEDGERBAL. Lido como instante, 00:00Z é 21h do dia ANTERIOR em Brasília,
+ *     e os três lançamentos de 01/09 caíam em 31/08 — virada de mês.
+ *   - `ENCODING:UTF-8` **sem linha `CHARSET`**, que a spec 1.x não prevê
+ *     (ela diz USASCII ou UNICODE). O acento tem de sobreviver assim mesmo.
+ *   - `LEDGERBAL` que NÃO é a soma da janela, como todo extrato de recorte é.
+ */
+const CORA = crlf([
+  "OFXHEADER:100",
+  "DATA:OFXSGML",
+  "VERSION:102",
+  "SECURITY:NONE",
+  "ENCODING:UTF-8",
+  "COMPRESSION:NONE",
+  "OLDFILEUID:NONE",
+  "NEWFILEUID:NONE",
+  "<OFX>",
+  "<SIGNONMSGSRSV1>",
+  "<SONRS>",
+  "<STATUS>",
+  "<CODE>0</CODE>",
+  "<SEVERITY>INFO</SEVERITY>",
+  "</STATUS>",
+  // Hora de VERDADE, no mesmo arquivo em que os lançamentos são meia-noite
+  // cravada. É o contraste que mostra que 000000 é data, não instante.
+  "<DTSERVER>20260903105313[0:GMT]</DTSERVER>",
+  "<LANGUAGE>POR</LANGUAGE>",
+  "<FI>",
+  "<ORG>Banco Fictício SCD SA</ORG>",
+  "<FID>0403</FID>",
+  "</FI>",
+  "</SONRS>",
+  "</SIGNONMSGSRSV1>",
+  "<BANKMSGSRSV1>",
+  "<STMTTRNRS>",
+  "<TRNUID>1</TRNUID>",
+  "<STATUS>",
+  "<CODE>0</CODE>",
+  "<SEVERITY>INFO</SEVERITY>",
+  "</STATUS>",
+  "<STMTRS>",
+  "<CURDEF>BRL</CURDEF>",
+  "<BANKACCTFROM>",
+  "<BANKID>0403</BANKID>",
+  "<BRANCHID>1</BRANCHID>",
+  "<ACCTID>99999999</ACCTID>",
+  "<ACCTTYPE>CHECKING</ACCTTYPE>",
+  "</BANKACCTFROM>",
+  "<BANKTRANLIST>",
+  "<DTSTART>20250901000000[0:GMT]</DTSTART>",
+  "<DTEND>20250901000000[0:GMT]</DTEND>",
+  "<STMTTRN>",
+  "<TRNTYPE>DEBIT</TRNTYPE>",
+  "<DTPOSTED>20250901000000[0:GMT]</DTPOSTED>",
+  "<TRNAMT>-12.34</TRNAMT>",
+  "<FITID>11111111-1111-4111-8111-111111111111</FITID>",
+  "<MEMO>Pgto QR Code Pix - EMPRESA FICTÍCIA LTDA. - 00.000.000/0001-00</MEMO>",
+  "</STMTTRN>",
+  "<STMTTRN>",
+  "<TRNTYPE>CREDIT</TRNTYPE>",
+  "<DTPOSTED>20250901000000[0:GMT]</DTPOSTED>",
+  "<TRNAMT>5000.00</TRNAMT>",
+  "<FITID>22222222-2222-4222-8222-222222222222</FITID>",
+  "<MEMO>Transferência Pix recebida - Clínica Fictícia - 11.111.111/0001-11</MEMO>",
+  "</STMTTRN>",
+  "<STMTTRN>",
+  "<TRNTYPE>DEBIT</TRNTYPE>",
+  "<DTPOSTED>20250901000000[0:GMT]</DTPOSTED>",
+  "<TRNAMT>-321.00</TRNAMT>",
+  "<FITID>33333333-3333-4333-8333-333333333333</FITID>",
+  "<MEMO>Pagamento da fatura - Cartão - 22.222.222/0001-22</MEMO>",
+  "</STMTTRN>",
+  "</BANKTRANLIST>",
+  "<LEDGERBAL>",
+  // Não é a soma da janela (que dá 4.666,66). Extrato de recorte nunca é.
+  "<BALAMT>7777.77</BALAMT>",
+  "<DTASOF>20250901000000[0:GMT]</DTASOF>",
+  "</LEDGERBAL>",
+  "</STMTRS>",
+  "</STMTTRNRS>",
+  "</BANKMSGSRSV1>",
+  "</OFX>",
+]);
+
 /** `latin1` é o apelido do Node para o byte-a-byte de cp1252 na faixa alta. */
 const V1 = [
   ["bradesco-like.ofx", BRADESCO],
@@ -460,3 +551,8 @@ for (const [nome, texto] of V1) {
 }
 writeFileSync(join(AQUI, "ofx2.xml.ofx"), Buffer.from(OFX2, "utf8"));
 console.info("escrito ofx2.xml.ofx (utf-8, CRLF)");
+// A Cora declara `ENCODING:UTF-8` num arquivo 1.x — fora da spec, mas é o que
+// chega. Sai em utf8 de propósito: escrito em latin1, o acento provaria o
+// contrário do que a fixture existe para provar.
+writeFileSync(join(AQUI, "cora-meia-noite-gmt.ofx"), Buffer.from(CORA, "utf8"));
+console.info("escrito cora-meia-noite-gmt.ofx (utf-8, CRLF)");
