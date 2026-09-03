@@ -63,6 +63,14 @@ export function centavosDeMicros(micros: number): number {
   return Math.round(micros / 10_000);
 }
 
+/**
+ * O inverso — para a Fase 8, que MANDA orçamento ao Google em vez de só ler.
+ * 1 centavo = 10.000 micros (1 unidade de moeda = 1.000.000 micros, §Google Ads API).
+ */
+export function microsDeCentavos(cents: number): number {
+  return cents * 10_000;
+}
+
 export function diasDoPeriodo(de: string, ate: string): string[] {
   const dias: string[] = [];
   const cursor = new Date(`${de}T00:00:00Z`);

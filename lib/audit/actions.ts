@@ -430,6 +430,15 @@ export const AUDIT_ACTIONS = [
   "ads.proposal_decided",
   /** Conversão offline (`lib/ads/conversoes.ts`): a rodada devolveu ≥ 1 consulta paga ao Google. Metadata: enviadas/falhas/ignoradas. */
   "ads.conversion_uploaded",
+  // Fase 8 (ADR-0018): o Nível 2 escreve de verdade no Google Ads.
+  /** Orçamento de campanha mudado de verdade no Google Ads. Metadata: campanha, orçamento anterior/novo em centavos, nível. */
+  "ads.orcamento_ajustado",
+  /** Campanha pausada de verdade no Google Ads. Metadata: campanha, motivo do agente, custo por conversa se disponível, nível. */
+  "ads.campanha_pausada",
+  /** A ferramenta passou pelo gate de nível mas a chamada ao Google Ads falhou (config, token, rede ou a própria API). Metadata: ação, campanha, code do Google Ads. */
+  "ads.escrita_falhou",
+  /** O Dono mudou o Nível de Autonomia da Conta pelo painel (ADR-0018: "subir de nível é ação do Dono, auditada"). Metadata: nível anterior e novo. */
+  "ads.nivel_alterado",
 
   // ─── Financeiro (Fase 6): extrato por OFX, categorias, contas e lembretes ───
   /** Importação de Extrato (`lib/financeiro/importar.ts`): um arquivo OFX virou linhas. Metadata: importados/duplicados/descartados e as contas do arquivo. */

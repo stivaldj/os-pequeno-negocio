@@ -9,8 +9,9 @@
  *     e ele é IGNORADO. É a regra do service role (bypassa RLS, filtra à mão).
  *   • Zod recusa antes do Postgres: `customer_id` com 9 dígitos, WhatsApp sem
  *     `+`, `dias` fora de 7|30, `status` `aplicada` (Fase 8) — tudo 422.
- *   • `autonomy_level` é SÓ LEITURA nesta fase: mandar no PATCH não chega ao
- *     upsert.
+ *   • `autonomy_level` e os três limites de orçamento SÃO editáveis desde a
+ *     Fase 8 (ADR-0018): mudar o nível audita `ads.nivel_alterado` À PARTE de
+ *     `ads.account_updated`, e só quando o nível DE FATO muda.
  *   • Toda mutação audita (`ads.account_updated`, `ads.link_created`,
  *     `ads.proposal_decided`) com a org e o ator.
  *   • O link de captura nasce com slug do NOME da campanha + 4 chars, e volta
@@ -154,7 +155,7 @@ describe("GET/PATCH /api/v1/ads/conta", () => {
     expect(vi.mocked(audit)).not.toHaveBeenCalled();
   });
 
-  it("PATCH faz upsert por (organization_id, provider) com a org do gate — e ignora organization_id e autonomy_level do body", async () => {
+  it("PATCH faz upsert por (organization_id, provider) com a org do gate — ignora organization_id do body, mas leva o autonomy_level (Fase 8)", async () => {
     linhas.ad_accounts = [{ id: "acc-1", customer_id: "1234567890", conversion_customer_id: "0987654321", conversion_action: "Lead", currency: "BRL", autonomy_level: 1, status: "active", last_sync_at: null, last_error: null }];
     const { PATCH } = await import("@/app/api/v1/ads/conta/route");
     const res = await PATCH(
@@ -162,13 +163,26 @@ describe("GET/PATCH /api/v1/ads/conta", () => {
     );
     expect(res.status).toBe(200);
     const upsert = chamadas.find((c) => c.op === "upsert" && c.tabela === "ad_accounts")!;
-    expect(upsert.payload).toMatchObject({ organization_id: ORG, provider: "google_ads", customer_id: "1234567890", conversion_customer_id: "0987654321", conversion_action: "Lead" });
-    expect(upsert.payload).not.toHaveProperty("autonomy_level");
+    expect(upsert.payload).toMatchObject({ organization_id: ORG, provider: "google_ads", customer_id: "1234567890", conversion_customer_id: "0987654321", conversion_action: "Lead", autonomy_level: 3 });
     expect(JSON.stringify(upsert.payload)).not.toContain(OUTRA_ORG);
     expect(upsert.opts).toMatchObject({ onConflict: "organization_id,provider" });
     expect(vi.mocked(audit)).toHaveBeenCalledWith(
       expect.objectContaining({ action: "ads.account_updated", organizationId: ORG, actorUserId: ANA, resourceType: "ad_accounts" }),
     );
+    // O nível ANTERIOR (1, lido de `linhas.ad_accounts` antes da gravação) mudou para 3 — audita à parte.
+    expect(vi.mocked(audit)).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "ads.nivel_alterado", organizationId: ORG, metadata: { nivel_anterior: 1, nivel_novo: 3 } }),
+    );
+  });
+
+  it("PATCH sem autonomy_level no corpo: a coluna existente NÃO é tocada, e não audita ads.nivel_alterado", async () => {
+    linhas.ad_accounts = [{ id: "acc-1", customer_id: "1234567890", conversion_customer_id: null, conversion_action: null, currency: "BRL", autonomy_level: 2, status: "active", last_sync_at: null, last_error: null }];
+    const { PATCH } = await import("@/app/api/v1/ads/conta/route");
+    const res = await PATCH(pedido("conta", "PATCH", { customer_id: "1234567890" }));
+    expect(res.status).toBe(200);
+    const upsert = chamadas.find((c) => c.op === "upsert" && c.tabela === "ad_accounts")!;
+    expect(upsert.payload).not.toHaveProperty("autonomy_level");
+    expect(vi.mocked(audit)).not.toHaveBeenCalledWith(expect.objectContaining({ action: "ads.nivel_alterado" }));
   });
 });
 

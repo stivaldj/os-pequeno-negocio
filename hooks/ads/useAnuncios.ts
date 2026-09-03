@@ -22,8 +22,12 @@ export interface ContaDeAnuncios {
   conversion_customer_id: string | null;
   conversion_action: string | null;
   currency: string;
-  /** ADR-0018. Só leitura nesta fase. */
+  /** ADR-0018. O Dono sobe pelo painel — auditado (`ads.nivel_alterado`). */
   autonomy_level: number;
+  /** `null` = sem limite configurado. No Nível 2, `ajustar_orcamento` recusa sem os dois. */
+  budget_floor_cents: number | null;
+  budget_ceiling_cents: number | null;
+  max_cost_per_conversation_cents: number | null;
   status: "active" | "paused" | "error";
   last_sync_at: string | null;
   last_error: string | null;
@@ -33,6 +37,20 @@ export interface DadosDaConta {
   customer_id: string;
   conversion_customer_id: string | null;
   conversion_action: string | null;
+  /** Omitido = não mexe no nível/limite atual. `null` nos limites limpa o limite. */
+  autonomy_level?: 1 | 2 | 3;
+  budget_floor_cents?: number | null;
+  budget_ceiling_cents?: number | null;
+  max_cost_per_conversation_cents?: number | null;
+}
+
+export interface AcaoDoHistorico {
+  id: string;
+  created_at: string;
+  action: string;
+  resource_type: string | null;
+  resource_id: string | null;
+  metadata: Record<string, unknown>;
 }
 
 export interface LinkDeCaptura {
@@ -201,5 +219,26 @@ export function useDecidirProposta() {
       void qc.invalidateQueries({ queryKey: ["ads", "propostas"] });
     },
     onError: (err) => showApiError(err),
+  });
+}
+
+/**
+ * O histórico de ações do Nível 2 (Fase 8) não tem tabela própria — é
+ * `api_audit_log` filtrado por `action=ads.`, a mesma rota genérica que
+ * `/app/audit` já usa (`GET /api/v1/audit`, `ilike` por ação). Uma segunda
+ * conta de auditoria aqui seria duplicação sem fonte declarada.
+ */
+export function useHistoricoDeAcoesDeAnuncios() {
+  return useQuery({
+    queryKey: ["ads", "historico"],
+    queryFn: async () => {
+      try {
+        const r = await apiClient.get<{ data: AcaoDoHistorico[] }>("/api/v1/audit?action=ads.");
+        return r.data ?? [];
+      } catch (err) {
+        showApiError(err);
+        throw err;
+      }
+    },
   });
 }

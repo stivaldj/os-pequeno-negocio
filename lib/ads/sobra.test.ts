@@ -4,7 +4,7 @@
  * linha de gasto é INCOMPLETO, nunca zero. É a fixture da prova da issue #23.
  */
 import { describe, expect, it } from "vitest";
-import { calcularSobraPorReal } from "@/lib/ads/sobra";
+import { calcularSobraPorReal, centavosDeMicros, microsDeCentavos } from "@/lib/ads/sobra";
 
 const PERIODO = { de: "2026-09-01", ate: "2026-09-02" };
 const GASTOS = [
@@ -80,5 +80,13 @@ describe("calcularSobraPorReal", () => {
     const r = calcularSobraPorReal({ periodo: PERIODO, gastos: GASTOS, vendas: VENDAS, contatos: CONTATOS });
     expect(r.total).toMatchObject({ gastoCents: 10_000, sobraCents: 18_000, incompleto: true });
     expect(r.total.sobraPorReal).toBeCloseTo(1.8, 5);
+  });
+});
+
+describe("microsDeCentavos — o inverso de centavosDeMicros, para a Fase 8 mandar orçamento ao Google", () => {
+  it("1 centavo = 10.000 micros, e o par de conversões faz ida e volta", () => {
+    expect(microsDeCentavos(1)).toBe(10_000);
+    expect(microsDeCentavos(5_000)).toBe(50_000_000);
+    expect(centavosDeMicros(microsDeCentavos(5_000))).toBe(5_000);
   });
 });
