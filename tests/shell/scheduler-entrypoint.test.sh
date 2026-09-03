@@ -84,6 +84,7 @@ check "uma linha por cron, nenhuma vazia" \
 # ninguém, e a madrugada é onde ele deve mesmo estar.
 HUMANOS="
 ads-agent|7|0
+financeiro-lembretes|7|20
 "
 echo "scheduler: cron que escreve ao Dono cai na hora civil de Brasília"
 while IFS='|' read -r rota hora minuto; do
