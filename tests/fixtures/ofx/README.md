@@ -31,6 +31,7 @@ git check-attr -a tests/fixtures/ofx/bradesco-like.ofx   # tem de dizer "text: u
 | `fitid-repetido.ofx` | Duas transações da mesma conta com o mesmo `FITID`: a conta inteira cai para a chave por conteúdo. As duas últimas repetem `(dia, valor)` de propósito — é o par que só o ordinal distingue. |
 | `memo-com-sinal.ofx` | Um `<` dentro do `MEMO`. É o caractere que faz a `ofx-js@1.1.1` **lançar**, perdendo o arquivo inteiro do Dono por um sinal de menor. |
 | `cartao.ofx` | Fatura de cartão: ramo `CREDITCARDMSGSRSV1 > CCSTMTTRNRS > CCSTMTRS`, com `CCACCTFROM` que só tem `ACCTID` (não existe `BANKID`). |
+| `cora-meia-noite-gmt.ofx` | **Anonimizado de extrato real** (Cora SCD SA, 01/09/2025, Clínica Humana). Todo carimbo é `000000[0:GMT]` — lançamentos, `DTSTART`, `DTEND` e `LEDGERBAL`. Lido como instante, 00:00Z vira 21h do dia **anterior** em Brasília e os três lançamentos de setembro caíam em agosto. Também: `ENCODING:UTF-8` **sem** linha `CHARSET` (fora da spec 1.x, mas é o que chega) e `LEDGERBAL` que não é a soma da janela. |
 | `ofx2.xml.ofx` | O **mesmo conteúdo** do `bradesco-like.ofx` em OFX 2.x (XML, tudo fechado, UTF-8, `&amp;`). O teste afirma lançamentos idênticos aos da v1: um tokenizer só lê as duas versões. |
 
 ## Por que as fixtures são nossas

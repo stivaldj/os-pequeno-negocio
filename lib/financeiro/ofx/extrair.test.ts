@@ -76,6 +76,37 @@ describe("um tokenizer só lê OFX 1.x e 2.x", () => {
   });
 });
 
+describe("cora-meia-noite-gmt.ofx — o extrato que chegou do banco de verdade", () => {
+  const r = ler("cora-meia-noite-gmt.ofx");
+
+  it("os três lançamentos ficam em 01/09, o dia que o banco declarou", () => {
+    // O defeito que a prova de realidade pegou: `000000[0:GMT]` lido como
+    // instante vira 21h de 31/08 em Brasília. Os três lançamentos mudavam de
+    // dia — e, por ser virada de mês, a receita de setembro caía em agosto.
+    expect(r.lancamentos.map((l) => l.dia)).toEqual(["2025-09-01", "2025-09-01", "2025-09-01"]);
+    expect(r.saldos.map((s) => s.dia)).toEqual(["2025-09-01"]);
+  });
+
+  it("o saldo vem do LEDGERBAL e NÃO da soma da janela", () => {
+    expect(r.lancamentos.reduce((soma, l) => soma + l.valorCents, 0)).toBe(466_666);
+    expect(r.saldos[0]?.valorCents).toBe(777_777);
+    expect(r.saldos[0]?.tipo).toBe("ledger");
+  });
+
+  it("ENCODING:UTF-8 sem linha CHARSET é lido, e o acento chega inteiro", () => {
+    // A spec 1.x só prevê USASCII e UNICODE; a Cora manda UTF-8 e omite o
+    // CHARSET. Recusar isso seria recusar o extrato do Dono.
+    expect(r.charset).toBe("utf-8");
+    expect(r.lancamentos[1]?.descricao).toContain("Transferência");
+    expect(r.lancamentos[0]?.descricao).toContain("FICTÍCIA");
+  });
+
+  it("o FITID em UUID mantém a chave no modo forte", () => {
+    expect(r.lancamentos.every((l) => l.chaveOrigem === "fitid")).toBe(true);
+    expect(new Set(r.lancamentos.map((l) => l.chaveBruta)).size).toBe(3);
+  });
+});
+
 describe("duas-contas.ofx — o asArray nos dois sentidos", () => {
   const r = ler("duas-contas.ofx");
 
@@ -223,16 +254,15 @@ describe("memo-com-sinal.ofx — o `<` que derruba a ofx-js", () => {
 });
 
 describe("varredura de tests/fixtures/ofx/", () => {
-  // O teste varre a PASTA, não uma lista. Quando o extrato real da Clínica
-  // Humana for exportado e anonimizado, basta largá-lo aqui: ele entra no gate
-  // sem que se toque numa linha de teste. (É o que fecha o critério literal da
-  // issue #24, adiado por um passo pela decisão de licença.)
+  // O teste varre a PASTA, não uma lista. Foi o que permitiu o extrato real da
+  // Clínica Humana entrar como `cora-meia-noite-gmt.ofx` sem tocar em linha de
+  // teste — e foi esta contagem que cobrou o README quando ele entrou.
   const arquivos = readdirSync(FIXTURES)
     .filter((n) => n.endsWith(".ofx"))
     .sort();
 
-  it("a pasta tem as sete fixtures declaradas no README", () => {
-    expect(arquivos).toHaveLength(7);
+  it("a pasta tem as oito fixtures declaradas no README", () => {
+    expect(arquivos).toHaveLength(8);
   });
 
   it.each(arquivos)("%s: parseia, e toda chave é única dentro do arquivo", (nome) => {

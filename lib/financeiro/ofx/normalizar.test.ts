@@ -100,8 +100,38 @@ describe("diaDoDtposted", () => {
     ["20260805120000[-3:BRT]", "2026-08-05"],
     ["20150730120000.000[-3:BRT]", "2015-07-30"],
     ["20260106030000[0:GMT]", "2026-01-06"],
+    // Meia-noite cravada é data civil, não instante — o formato da Cora.
+    ["20250901000000[0:GMT]", "2025-09-01"],
+    ["20250901000000.000[0:GMT]", "2025-09-01"],
+    ["20250901[0:GMT]", "2025-09-01"],
   ])("%s → %s", (raw, esperado) => {
     expect(diaDoDtposted(raw)).toBe(esperado);
+  });
+
+  it("o caso da Cora: meia-noite em GMT não empurra o lançamento para o mês anterior", () => {
+    // Medido no extrato real de 01/09/2025 da Clínica Humana (Cora SCD SA, FID
+    // 0403). Os TRÊS lançamentos, o DTSTART, o DTEND e o LEDGERBAL vêm todos
+    // com `000000[0:GMT]`, e o nome do arquivo do banco diz `01092025_a_01092025`.
+    // Tratado como instante, 00:00Z é 21h de 31/08 em Brasília: R$ 10.000,00 de
+    // receita de setembro caíam em agosto, e o Dono conferindo com o app da Cora
+    // via data diferente da nossa.
+    expect(diaDoDtposted("20250901000000[0:GMT]")).toBe("2025-09-01");
+
+    // A mesma data sem o sufixo já respondia certo. Era o `[0:GMT]` que movia.
+    expect(diaDoDtposted("20250901000000")).toBe("2025-09-01");
+
+    // O controle que mostra por que 169 testes não pegaram: às 03:00Z a
+    // conversão para Brasília cai em meia-noite do MESMO dia, então o defeito
+    // some. Era o único `[0:GMT]` coberto.
+    expect(diaDoDtposted("20260106030000[0:GMT]")).toBe("2026-01-06");
+  });
+
+  it("hora de verdade continua sendo instante, mesmo em GMT", () => {
+    // A regra nova é sobre meia-noite CRAVADA, não sobre offset zero. O
+    // `DTSERVER` do mesmo arquivo da Cora traz `105313` — hora real — e um
+    // lançamento às 02:00Z pertence ao dia anterior em Brasília, como sempre.
+    expect(diaDoDtposted("20250901020000[0:GMT]")).toBe("2025-08-31");
+    expect(diaDoDtposted("20250901000001[0:GMT]")).toBe("2025-08-31");
   });
 
   it("o caso que UTC estragaria: 23h de 31/08 em -3 continua sendo 31/08", () => {
