@@ -503,3 +503,100 @@ describe("GET /api/v1/financeiro/caixa", () => {
     expect(entries.filtros.some(([m]) => m === "gte")).toBe(false);
   });
 });
+
+/**
+ * ⚠️ ACRÉSCIMO DA TAREFA 8 — nada acima foi reescrito.
+ *
+ * `GET /api/v1/financeiro/lancamentos` não existia: a Tarefa 6 entregou
+ * `categorias`, `obrigacoes` e `caixa`, e nenhuma delas LISTA `ledger_entries`
+ * (o `/caixa` lê a tabela, mas devolve contagem, não linha). O bloco "Últimos
+ * lançamentos" da tela precisa das linhas, então a rota nasceu aqui.
+ *
+ * O que se prova, e por quê:
+ *
+ *   • Leitura é `viewer` — extrato é para olhar; quem SOBE arquivo passa por
+ *     `manager` na rota de extratos.
+ *   • O `organization_id` sai do gate e entra como filtro à mão: o client é
+ *     service role e bypassa RLS. Query string não é fonte de tenant.
+ *   • O teto do `limit` é do Zod (422), não do Postgres: `limit=999` recusado
+ *     com frase, e o default é 50 quando ninguém pede nada.
+ *   • Os filtros opcionais viram `eq`/`gte`/`lte` — e a ordem é `posted_on`
+ *     descendente, que é a ordem em que se lê extrato.
+ */
+describe("GET /api/v1/financeiro/lancamentos", () => {
+  it("lista com viewer, filtra a org à mão e ordena por posted_on desc", async () => {
+    linhas.ledger_entries = [
+      {
+        id: "lan-1",
+        bank_id: "001",
+        account_id: "00012345-6",
+        account_kind: "bank",
+        posted_on: "2026-09-01",
+        amount_cents: -25000,
+        currency: "BRL",
+        trn_type: "DEBIT",
+        description: "ALUGUEL SALA",
+        key_source: "fitid",
+        source: "ofx",
+        category_id: null,
+      },
+    ];
+    const { GET } = await import("@/app/api/v1/financeiro/lancamentos/route");
+    const res = await GET(pedido("lancamentos", "GET"));
+    expect(res.status).toBe(200);
+    expect(vi.mocked(requireRole)).toHaveBeenCalledWith("viewer", expect.objectContaining({ requestId: "req-fin" }));
+
+    const json = await res.json();
+    expect(json.data[0]).toMatchObject({ id: "lan-1", amount_cents: -25000, key_source: "fitid" });
+
+    const consulta = chamadas.find((c) => c.tabela === "ledger_entries")!;
+    expect(filtroDeOrg(consulta)).toBe(ORG);
+    expect(consulta.filtros).toContainEqual(["order", ["posted_on", { ascending: false }]]);
+    // Sem `limit` na query, o default do Zod é 50 — e ele chega ao PostgREST.
+    expect(consulta.filtros).toContainEqual(["limit", [50]]);
+  });
+
+  it("account_id, de e ate viram eq/gte/lte; sem eles a consulta vai limpa", async () => {
+    const { GET } = await import("@/app/api/v1/financeiro/lancamentos/route");
+    await GET(
+      new NextRequest(
+        "https://crm.exemplo/api/v1/financeiro/lancamentos?account_id=00012345-6&de=2026-08-01&ate=2026-08-31&limit=10",
+        { method: "GET", headers: { "x-request-id": "req-fin" } },
+      ),
+    );
+    const comFiltro = chamadas.find((c) => c.tabela === "ledger_entries")!;
+    expect(comFiltro.filtros).toContainEqual(["eq", ["account_id", "00012345-6"]]);
+    expect(comFiltro.filtros).toContainEqual(["gte", ["posted_on", "2026-08-01"]]);
+    expect(comFiltro.filtros).toContainEqual(["lte", ["posted_on", "2026-08-31"]]);
+    expect(comFiltro.filtros).toContainEqual(["limit", [10]]);
+
+    chamadas.length = 0;
+    await GET(pedido("lancamentos", "GET"));
+    const semFiltro = chamadas.find((c) => c.tabela === "ledger_entries")!;
+    expect(semFiltro.filtros.some(([m, a]) => m === "eq" && a[0] === "account_id")).toBe(false);
+    expect(semFiltro.filtros.some(([m]) => m === "gte" || m === "lte")).toBe(false);
+  });
+
+  it("limit acima do teto e data impossível voltam 422, sem tocar o banco", async () => {
+    const { GET } = await import("@/app/api/v1/financeiro/lancamentos/route");
+    for (const query of ["limit=999", "limit=0", "de=2026-02-30", "ate=31-08-2026"]) {
+      chamadas.length = 0;
+      const res = await GET(
+        new NextRequest(`https://crm.exemplo/api/v1/financeiro/lancamentos?${query}`, {
+          method: "GET",
+          headers: { "x-request-id": "req-fin" },
+        }),
+      );
+      expect(res.status, query).toBe(422);
+      expect(chamadas).toHaveLength(0);
+    }
+  });
+
+  it("a recusa do requireRole volta como resposta, sem tocar o banco", async () => {
+    vi.mocked(requireRole).mockResolvedValue({ ok: false, response: fail("forbidden_role", "não", 403) });
+    const { GET } = await import("@/app/api/v1/financeiro/lancamentos/route");
+    const res = await GET(pedido("lancamentos", "GET"));
+    expect(res.status).toBe(403);
+    expect(chamadas).toHaveLength(0);
+  });
+});
