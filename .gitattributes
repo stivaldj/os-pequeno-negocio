@@ -66,3 +66,21 @@ supabase/migrations/MANIFEST.md merge=union
 # texto é normalizado. Os blobs JÁ estão em LF, então isto não reescreve
 # arquivo nenhum: muda apenas o que o checkout entrega.
 * text=auto eol=lf
+
+# ─── Fixtures de OFX: o byte É o teste ───────────────────────────────────────
+#
+# A regra `* text=auto eol=lf` acima está certa para código e errada para estas
+# sete fixtures, porque nelas o fim de linha e o encoding NÃO são formatação:
+# são o dado sob teste. Extrato de banco brasileiro chega em SGML com CRLF e
+# `CHARSET:1252`, e o parser existe para atravessar as duas coisas.
+#
+# Medido neste repo, antes desta entrada: um `.ofx` escrito com CRLF e com o
+# byte 0xC3 de `CARTÃO` em cp1252 volta do checkout com LF — o byte cp1252
+# sobrevive (o git o trata como texto latino qualquer), o `\r` não. O efeito é
+# pior que uma falha: o teste "tolera CRLF" fica VERDE por vacuidade, porque o
+# arquivo que ele lê nunca teve `\r`. Um gate que não pode reprovar não é gate.
+#
+# `-text` desliga a conversão de fim de linha nos dois sentidos (checkout e
+# check-in) para estes arquivos, sem tocar em mais nada do repo. Regerar:
+# `node tests/fixtures/ofx/gerar.mjs`.
+tests/fixtures/ofx/*.ofx -text
