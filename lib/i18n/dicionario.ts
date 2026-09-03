@@ -6415,6 +6415,16 @@ export const DICIONARIO: Traducoes = {
   "descartado(s)": { es: "descartado(s)" },
   "lançamento(s) sem identificador do banco.": { es: "movimiento(s) sin identificador del banco." },
   "Este banco não manda um identificador confiável para essas linhas, então elas são reconhecidas por dia, valor e ordem no arquivo. Reimportar um período que se sobrepõe a este pode duplicá-las: exporte períodos sem sobreposição.": { es: "Este banco no manda un identificador confiable para esas líneas, así que se reconocen por día, valor y orden en el archivo. Reimportar un período que se superpone a este puede duplicarlas: exporte períodos sin superposición." },
+
+  // ─── Relatório das 8h (Fase 7): histórico do que chegou ao WhatsApp do Dono ───
+  "Relatório": { es: "Informe" },
+  "O que chegou no WhatsApp do Dono às 8h, dia a dia.": { es: "Lo que llegó al WhatsApp del Dueño a las 8h, día a día." },
+  "O histórico do relatório diário que chega ao WhatsApp do Dono às 8h.": { es: "El historial del informe diario que llega al WhatsApp del Dueño a las 8h." },
+  "Enviado": { es: "Enviado" },
+  "Atendimentos": { es: "Atenciones" },
+  "Ver texto enviado": { es: "Ver texto enviado" },
+  "Ocultar texto": { es: "Ocultar texto" },
+  "Nenhum relatório enviado ainda. O primeiro chega às 8h.": { es: "Ningún informe enviado todavía. El primero llega a las 8h." },
 };
 
 /**

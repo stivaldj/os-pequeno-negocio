@@ -104,6 +104,13 @@ const PROVA_PROPRIA: readonly Excecao[] = [
       "semeado em rls-isolation é agent (migration 0209).",
   },
   {
+    tabela: "daily_reports",
+    razao:
+      "tests/invariants/relatorio-schema.test.ts prova isolamento cross-org, o gate de papel " +
+      "(viewer não escreve) e a unicidade (organization_id, report_date). Fora de TABLES " +
+      "porque a escrita exige manager e o usuário semeado em rls-isolation é agent (migration 0210).",
+  },
+  {
     tabela: "ad_accounts",
     razao:
       "tests/invariants/ads-schema.test.ts prova isolamento cross-org e o gate de papel " +

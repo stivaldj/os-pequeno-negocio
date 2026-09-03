@@ -442,6 +442,10 @@ export const AUDIT_ACTIONS = [
   "financeiro.obrigacao_alterada",
   /** Lembrete de vencimento entregue ao Dono (`lib/financeiro/lembretes.ts`), por Conta. Rodada sem vencimento não audita. */
   "financeiro.lembrete_enviado",
+
+  // ─── Relatório das 8h (Fase 7): resumo diário ao Dono ───
+  /** Relatório diário entregue ao Dono (`lib/relatorio/enviar.ts`), por Conta. Metadata: seções incompletas e contagens de atendimento. */
+  "relatorio.enviado",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */

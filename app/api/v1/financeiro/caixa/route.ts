@@ -3,12 +3,12 @@
  *
  * Uma leitura só devolve as duas perguntas que a tela do Financeiro e o
  * Relatório das 8h (Fase 7) fazem juntas: quanto tem em caixa, e o que vence.
- * A rota NÃO calcula nada: ela lê o Postgres, traduz as linhas para as
- * interfaces dos módulos puros e delega a `calcularCaixa` (`lib/financeiro/
- * caixa.ts`) e `vencimentosDoDia` (`lib/financeiro/vencimentos.ts`). Quem
- * decide dinheiro é aquele par de arquivos, testado sem banco; ter uma segunda
- * conta de caixa aqui seria a duplicação sem fonte declarada que o `CLAUDE.md`
- * proíbe — e as duas divergiriam no primeiro ajuste.
+ * A rota NÃO calcula nada e, desde a Fase 7, NÃO lê o Postgres diretamente:
+ * ela chama `caixaDaConta`/`vencimentosDaConta` (`lib/financeiro/relatorio.ts`,
+ * a MESMA leitura que `lib/relatorio/financeiro.ts` usa para o relatório das
+ * 8h) e só traduz o resultado para JSON. Ter uma segunda conta de caixa aqui
+ * seria a duplicação sem fonte declarada que o `CLAUDE.md` proíbe — e as duas
+ * divergiriam no primeiro ajuste.
  *
  * ⚠️ O `hoje` é resolvido AQUI, não lá dentro. Os módulos puros nunca chamam
  * `new Date()` de propósito (é o que os torna testáveis e determinísticos), e
@@ -36,51 +36,13 @@ import { type NextRequest } from "next/server";
 
 import { fail, ok } from "@/lib/api/wrappers";
 import { requireRole } from "@/lib/auth/require-role";
-import { calcularCaixa, type LinhaDeLancamento, type LinhaDeSaldo } from "@/lib/financeiro/caixa";
-import { vencimentosDoDia, type GrupoDeVencimento, type Obrigacao } from "@/lib/financeiro/vencimentos";
-import type { ContaKind } from "@/lib/financeiro/ofx/tipos";
+import { caixaDaConta, vencimentosDaConta } from "@/lib/financeiro/relatorio";
+import type { GrupoDeVencimento } from "@/lib/financeiro/vencimentos";
 import { diaLocalISO } from "@/lib/agenda/fuso";
 import { FUSO_PADRAO, fusoValido } from "@/lib/tempo/fusos";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
-
-/**
- * Tetos de leitura. Não são regra de negócio: são o limite que impede uma
- * organização com anos de extrato de derrubar a tela. `calcularCaixa` só usa o
- * que veio depois do saldo, e essa janela é curta na prática.
- */
-const TETO_DE_LANCAMENTOS = 5000;
-const TETO_DE_OBRIGACOES = 1000;
-
-interface LinhaDeSaldoDoBanco {
-  bank_id: string | null;
-  account_id: string;
-  account_kind: string;
-  kind: string;
-  as_of: string;
-  balance_cents: number | string;
-}
-
-interface LinhaDeLancamentoDoBanco {
-  bank_id: string | null;
-  account_id: string;
-  account_kind: string;
-  posted_on: string;
-  amount_cents: number | string;
-}
-
-interface LinhaDeObrigacaoDoBanco {
-  id: string;
-  direction: string;
-  description: string;
-  amount_cents: number | string;
-  due_on: string;
-  status: string;
-}
-
-/** `bigint` do Postgres chega como número no JSON do PostgREST; `Number` é o cinto. */
-const cents = (v: number | string): number => Number(v);
 
 function grupoEmSnakeCase(g: GrupoDeVencimento) {
   return {
@@ -104,61 +66,6 @@ export async function GET(req: NextRequest): Promise<Response> {
   const orgId = authz.org.orgId;
   const admin = createAdminClient();
 
-  const { data: saldosBrutos, error: erroDeSaldos } = await admin
-    .from("ledger_balances")
-    .select("bank_id, account_id, account_kind, kind, as_of, balance_cents")
-    .eq("organization_id", orgId);
-  if (erroDeSaldos) return fail("internal_error", erroDeSaldos.message, 500, { requestId });
-
-  const saldos: LinhaDeSaldo[] = ((saldosBrutos ?? []) as LinhaDeSaldoDoBanco[]).map((s) => ({
-    bankId: s.bank_id ?? "",
-    acctId: s.account_id,
-    // ⚠️ As duas colunas trocam de nome ao virar `LinhaDeSaldo`: `account_kind`
-    // (banco ou cartão) é o `kind` da conta, e a coluna `kind` do saldo
-    // (`ledger`/`available`) é o `tipo`.
-    kind: s.account_kind as ContaKind,
-    tipo: s.kind as LinhaDeSaldo["tipo"],
-    saldoEm: s.as_of,
-    saldoCents: cents(s.balance_cents),
-  }));
-
-  const corte = saldos.reduce<string | null>((menor, s) => (menor === null || s.saldoEm < menor ? s.saldoEm : menor), null);
-  let consultaDeLancamentos = admin
-    .from("ledger_entries")
-    .select("bank_id, account_id, account_kind, posted_on, amount_cents")
-    .eq("organization_id", orgId);
-  if (corte !== null) consultaDeLancamentos = consultaDeLancamentos.gte("posted_on", corte);
-  const { data: lancamentosBrutos, error: erroDeLancamentos } = await consultaDeLancamentos
-    .order("posted_on", { ascending: false })
-    .limit(TETO_DE_LANCAMENTOS);
-  if (erroDeLancamentos) return fail("internal_error", erroDeLancamentos.message, 500, { requestId });
-
-  const lancamentos: LinhaDeLancamento[] = ((lancamentosBrutos ?? []) as LinhaDeLancamentoDoBanco[]).map((l) => ({
-    bankId: l.bank_id ?? "",
-    acctId: l.account_id,
-    kind: l.account_kind as ContaKind,
-    dia: l.posted_on,
-    valorCents: cents(l.amount_cents),
-  }));
-
-  const { data: obrigacoesBrutas, error: erroDeObrigacoes } = await admin
-    .from("financial_obligations")
-    .select("id, direction, description, amount_cents, due_on, status")
-    .eq("organization_id", orgId)
-    .eq("status", "open")
-    .order("due_on", { ascending: true })
-    .limit(TETO_DE_OBRIGACOES);
-  if (erroDeObrigacoes) return fail("internal_error", erroDeObrigacoes.message, 500, { requestId });
-
-  const obrigacoes: Obrigacao[] = ((obrigacoesBrutas ?? []) as LinhaDeObrigacaoDoBanco[]).map((o) => ({
-    id: o.id,
-    direction: o.direction as Obrigacao["direction"],
-    description: o.description,
-    amountCents: cents(o.amount_cents),
-    dueOn: o.due_on,
-    status: o.status as Obrigacao["status"],
-  }));
-
   // O fuso da organização, com a mesma degradação que o resto do produto: valor
   // que o `Intl` recusa vira `FUSO_PADRAO` em vez de derrubar a tela do Dono.
   const { data: org } = await admin.from("organizations").select("timezone").eq("id", orgId).maybeSingle();
@@ -166,8 +73,14 @@ export async function GET(req: NextRequest): Promise<Response> {
   const fuso = bruto !== "" && fusoValido(bruto) ? bruto : FUSO_PADRAO;
   const hoje = diaLocalISO(new Date(), fuso);
 
-  const caixa = calcularCaixa({ saldos, lancamentos });
-  const vencimentos = vencimentosDoDia(obrigacoes, hoje);
+  let caixa;
+  let vencimentos;
+  try {
+    caixa = await caixaDaConta(admin, orgId);
+    vencimentos = await vencimentosDaConta(admin, orgId, hoje);
+  } catch (err) {
+    return fail("internal_error", err instanceof Error ? err.message : "erro ao ler o financeiro", 500, { requestId });
+  }
 
   return ok(
     {
