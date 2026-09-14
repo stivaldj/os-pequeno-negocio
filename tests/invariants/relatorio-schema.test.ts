@@ -1,5 +1,5 @@
 /**
- * Migration 0210 (Fase 7): `daily_reports` existe, isola por organização e só
+ * Migration 0245 (Fase 7): `daily_reports` existe, isola por organização e só
  * deixa `manager` ou acima escrever. Um `viewer` da própria org lê e não
  * escreve; a org B não vê nada da A. `unique (organization_id, report_date)`
  * é a idempotência do cron — molde de `tests/invariants/ads-schema.test.ts`.
@@ -41,7 +41,7 @@ beforeAll(() => {
   `);
 });
 
-describe("relatório das 8h — daily_reports (0210)", () => {
+describe("relatório das 8h — daily_reports (0245)", () => {
   it("a tabela existe com RLS ligada", () => {
     const out = sql(`select relrowsecurity from pg_class where relname = 'daily_reports' and relnamespace = 'public'::regnamespace;`);
     expect(out).toBe("t");

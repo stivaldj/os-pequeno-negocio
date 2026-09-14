@@ -14,6 +14,7 @@ import {
 } from "@/hooks/channels/useOfficialChannel";
 import { copyToClipboard } from "@/lib/clipboard";
 import { useT } from "@/hooks/i18n/useT";
+import { ChannelAiAccess } from "./ChannelAiAccess";
 
 /** Campo somente-leitura com botão de copiar — o que o operador cola na Meta. */
 function ParaColar({ rotulo, valor }: { rotulo: string; valor: string | null }) {
@@ -36,7 +37,7 @@ function ParaColar({ rotulo, valor }: { rotulo: string; valor: string | null }) 
         {rotulo}
       </span>
       <div className="flex items-center gap-2">
-        <code className="flex-1 overflow-x-auto rounded bg-muted px-2 py-1.5 text-xs">{valor}</code>
+        <code className="flex-1 overflow-x-auto rounded-md bg-muted px-2 py-1.5 text-xs">{valor}</code>
         <Button
           size="sm"
           variant="outline"
@@ -94,6 +95,7 @@ export function CanalOficialClient() {
           </p>
         </Card>
       ) : null}
+      {estado?.channel_session_id && <ChannelAiAccess channelId={estado.channel_session_id} />}
 
       {estado?.webhook ? (
         <Card className="flex flex-col gap-3 p-4">

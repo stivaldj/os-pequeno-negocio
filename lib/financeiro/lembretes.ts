@@ -1,6 +1,6 @@
 /**
  * Lembretes de vencimento — o Dono fica sabendo, de manhã, o que vence hoje e
- * o que já venceu (Spec 0003, "O dinheiro"; migration 0209, Fase 6).
+ * o que já venceu (Spec 0003, "O dinheiro"; migration 0244, Fase 6).
  *
  * ─── O que faz, 1×/dia ──────────────────────────────────────────────────────
  *
@@ -21,7 +21,7 @@
  * é `NULL` — que o `WHERE` descarta. Sem o `is null`, a PRIMEIRA rodada de cada
  * obrigação não manda nada, e o modo de falha é mudo: 200 na rota, `job_runs`
  * `ok`, zero candidatos, ninguém avisado. O `comment on column` da migration
- * 0209 diz isso em voz alta, e `lembretes.test.ts` tem o caso com esse nome.
+ * 0244 diz isso em voz alta, e `lembretes.test.ts` tem o caso com esse nome.
  *
  * ─── Falha de envio NÃO marca ───────────────────────────────────────────────
  *

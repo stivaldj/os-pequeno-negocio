@@ -39,6 +39,8 @@ import type { ActiveOrg, AuthUser } from "@/lib/auth/types";
 import { OFX_MAX_BYTES } from "@/lib/financeiro/ofx/tipos";
 
 vi.mock("@/lib/auth/require-role", () => ({ requireRole: vi.fn() }));
+// Este teste isola o handler; autoridade de suporte é exercitada na suíte própria.
+vi.mock("@/lib/impersonate/support", () => ({ requireSupportWrite: vi.fn(async () => null) }));
 vi.mock("@/lib/audit", () => ({
   audit: vi.fn(async () => undefined),
   isServiceRoleConfigured: vi.fn(() => true),

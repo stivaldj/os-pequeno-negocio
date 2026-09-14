@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import type { Json } from "@/lib/database.types";
 /**
  * A REGRA de marcar, remarcar e cancelar — fora da rota, de propósito.
  *
@@ -25,7 +27,6 @@ import { horariosLivresDaOrg } from "@/lib/agenda/consulta";
 import {
   atividadeDaTransicao,
   autorParaTimeline,
-  precisaEmpurrarAoGoogle,
   type SituacaoAnterior,
   type Transicao,
 } from "@/lib/agenda/laco";
@@ -56,21 +57,36 @@ export interface MarcarInput {
   starts_at: string;
   owner_user_id?: string;
   contact_id?: string;
+  conversation_id?: string;
   title?: string;
   notes?: string;
+  /**
+   * Convidado externo, digitado na tela. `""` limpa; ausente não mexe.
+   *
+   * NÃO é `contact_id`, e a distinção é o motivo de a coluna existir: o contato
+   * é quem recebe o atendimento, e quem precisa entrar na sala pode ser outra
+   * pessoa. Quem transforma isto em convite do Google é o worker de push.
+   */
+  guest_email?: string;
 }
 
 export interface AlterarInput {
   id: string;
+  revision?: number;
+  outcome_message_id?: string;
+  confirmation_next_at?: string;
   starts_at?: string;
   status?: "confirmed" | "completed" | "no_show";
   notes?: string;
   /** ADR-0017: valor pago em centavos; só com `status: "completed"`. */
   paid_cents?: number;
+  /** Igual ao de `MarcarInput`: `""` desconvida, ausente não mexe. */
+  guest_email?: string;
 }
 
 export interface CancelarInput {
   id: string;
+  revision?: number;
   reason: string;
 }
 
@@ -143,13 +159,16 @@ export async function marcarAgendamentoHandler(
   // A conversa mais recente do contato, para o lembrete de consulta sair pelo
   // mesmo canal em que ele falou. A coluna existia desde a 0177 e ninguém a
   // gravava. Sem conversa, fica nula (o lembrete cai no fallback por contato).
+  // `is_group = false`: o `fn_appointment_stamp` (upstream) recusa conversa de
+  // grupo no compromisso com 23503 — escolher uma derrubaria a marcação inteira.
   let conversationId: string | null = null;
-  if (input.contact_id) {
+  if (input.contact_id && !input.conversation_id) {
     const { data: conversa } = await supabase
       .from("conversations")
       .select("id")
       .eq("organization_id", ctx.organization_id)
       .eq("contact_id", input.contact_id)
+      .eq("is_group", false)
       .order("last_message_at", { ascending: false, nullsFirst: false })
       .limit(1)
       .maybeSingle();
@@ -164,6 +183,12 @@ export async function marcarAgendamentoHandler(
     fim,
   });
 
+  const booking = tipo.location_kind === "google_meet" ? ctx.meetingBooking : undefined;
+  if (booking && (booking.boundary.organization_id !== ctx.organization_id || booking.boundary.contact_id !== input.contact_id || ctx.actor.type !== "ai_agent")) {
+    throw new ApiError(403,"forbidden",undefined,ctx.requestId,"A conversa deste atendimento mudou.");
+  }
+  const delivery = booking ? { state:"waiting_for_link",generation:randomUUID(),service_boundary:booking.boundary,source_operation_id:booking.sourceJobId,
+    booking_claim:booking.claim,authorized_by:{kind:ctx.actor.type,id:ctx.actor.id} } : {state:"none"};
   const { data: criado, error: erroInsert } = await supabase
     .from("calendar_appointments")
     .insert({
@@ -178,15 +203,23 @@ export async function marcarAgendamentoHandler(
       status: tipo.requires_confirmation ? "pending" : "confirmed",
       owner_user_id: donoId,
       contact_id: input.contact_id ?? null,
-      conversation_id: conversationId,
+      // A conversa: a do atendimento que marcou (Meet/MCP) ou a informada; senão a
+      // mais recente do contato (fork, Fase 4), para o lembrete sair pelo canal
+      // em que ele falou.
+      conversation_id: booking?.boundary.conversation_id ?? input.conversation_id ?? conversationId,
+      meeting_delivery: delivery as unknown as Json,
       location_kind: tipo.location_kind,
       location_details: tipo.location_details,
       notes: input.notes ?? null,
+      // `|| null` e não `?? null`: a rota deixa passar `""` (o campo limpo na
+      // tela), e string vazia gravada seria um convidado sem e-mail — que faz o
+      // Google recusar o EVENTO INTEIRO, não só o convidado.
+      guest_email: input.guest_email || null,
       created_by_kind: autorParaCriacao(ctx.actor),
       created_by_user_id: ctx.actor.type === "user" ? ctx.actor.id : null,
       source: ctx.actor.type === "user" ? "ui" : "mcp",
     })
-    .select("id, starts_at, ends_at, status, time_zone")
+    .select("id, starts_at, ends_at, status, time_zone, revision, meeting_state, meeting_url")
     .single();
   if (erroInsert) {
     throw new ApiError(500, "internal_error", undefined, ctx.requestId, erroInsert.message);
@@ -198,7 +231,6 @@ export async function marcarAgendamentoHandler(
     contactId: input.contact_id ?? null,
     atividade: atividadeDaTransicao(null, transicao),
     transicao,
-    empurrarAoGoogle: precisaEmpurrarAoGoogle(null, transicao),
     fusoDoCompromisso: criado.time_zone,
     nomeDoTipo: tipo.name,
   });
@@ -238,6 +270,7 @@ export async function alterarAgendamentoHandler(
 ): Promise<Record<string, unknown>> {
   const atual = await exigeAgendamento(supabase, ctx, input.id, [
     "id",
+    "revision",
     "event_type_id",
     "owner_user_id",
     "contact_id",
@@ -246,6 +279,7 @@ export async function alterarAgendamentoHandler(
     "time_zone",
   ]);
 
+  if (input.revision !== undefined && input.revision !== Number(atual.revision)) throw new ApiError(409,"conflict",undefined,ctx.requestId,"O compromisso mudou. Recarregue antes de confirmar.");
   if (atual.status === "cancelled") {
     throw new ApiError(
       422,
@@ -257,13 +291,31 @@ export async function alterarAgendamentoHandler(
   }
 
   const mudanca: Record<string, unknown> = {};
+  if (input.status === "completed" || input.status === "no_show") {
+    if (ctx.actor.type !== "user") throw new ApiError(403,"forbidden",undefined,ctx.requestId,"Peça à equipe para confirmar a presença no compromisso. Uma interpretação de texto não registra o fato.");
+    if (input.outcome_message_id) mudanca.outcome_message_id=input.outcome_message_id;
+  }
+  if(input.confirmation_next_at) mudanca.confirmation_next_at=input.confirmation_next_at;
   if (input.notes !== undefined) mudanca.notes = input.notes;
   // ADR-0017: a consulta paga é a Venda Confirmada. Entra mesmo que o status
   // já seja `completed` — é assim que a recepção corrige um valor digitado errado.
-  if (input.paid_cents !== undefined && input.status === "completed") {
-    mudanca.paid_cents = input.paid_cents;
-    mudanca.paid_currency = "BRL";
-  }
+  //
+  // ⚠️ FORA de `mudanca`, de propósito: `mudanca` vira o `p_patch` de
+  // `fn_appointment_change` (upstream, migration 0224+), que só aplica as colunas
+  // que conhece — `paid_cents` iria no JSON e seria descartado EM SILÊNCIO. O
+  // valor pago não mexe na revisão (o `fn_appointment_stamp` só conta horário,
+  // situação, contato e conversa), então é escrito à parte, depois que a
+  // mudança revisada passou.
+  const pagamento =
+    input.paid_cents !== undefined && input.status === "completed"
+      ? { paid_cents: input.paid_cents, paid_currency: "BRL" }
+      : null;
+  // Trocar SÓ o convidado não é remarcação nem mudança de situação, então não
+  // produz `transicao` — e não deveria: a timeline do lead não ganha notícia
+  // por causa de um e-mail digitado. Quem leva a mudança ao Google é a coluna
+  // gerada `needs_google_push` (migration 0225), que compara a revisão
+  // publicável com o último aceite; notes e metadata não criam intenção.
+  if (input.guest_email !== undefined) mudanca.guest_email = input.guest_email || null;
   let transicao: Transicao | null = null;
 
   if (input.starts_at) {
@@ -336,22 +388,20 @@ export async function alterarAgendamentoHandler(
     transicao = transicao ?? input.status;
   }
 
-  if (Object.keys(mudanca).length === 0) return { id: atual.id, inalterado: true };
+  if (Object.keys(mudanca).length === 0 && !pagamento) return { id: atual.id, inalterado: true };
 
-  const { data: salvo, error: erroUpdate } = await supabase
-    .from("calendar_appointments")
-    .update(mudanca)
-    .eq("organization_id", ctx.organization_id)
-    .eq("id", atual.id as string)
-    .select("id, starts_at, ends_at, status, time_zone")
-    .single();
-  if (erroUpdate) {
-    throw new ApiError(500, "internal_error", undefined, ctx.requestId, erroUpdate.message);
-  }
-
-  // ADR-0017: dinheiro entrou no registro — isso se audita, ao contrário do
-  // desfecho puro (`completed`/`no_show`), que por decisão herdada não audita.
-  if (mudanca.paid_cents !== undefined) {
+  const registraPagamento = async (): Promise<void> => {
+    if (!pagamento) return;
+    const { error: erroPagamento } = await supabase
+      .from("calendar_appointments")
+      .update(pagamento)
+      .eq("organization_id", ctx.organization_id)
+      .eq("id", atual.id as string);
+    if (erroPagamento) {
+      throw new ApiError(500, "internal_error", undefined, ctx.requestId, erroPagamento.message);
+    }
+    // ADR-0017: dinheiro entrou no registro — isso se audita, ao contrário do
+    // desfecho puro (`completed`/`no_show`), que por decisão herdada não audita.
     void audit({
       action: "agenda.appointment_paid",
       organizationId: ctx.organization_id,
@@ -359,8 +409,21 @@ export async function alterarAgendamentoHandler(
       resourceType: "calendar_appointment",
       resourceId: atual.id as string,
       requestId: ctx.requestId,
-      metadata: { appointment_id: atual.id, paid_cents: mudanca.paid_cents, paid_currency: "BRL" },
+      metadata: { appointment_id: atual.id, ...pagamento },
     });
+  };
+
+  // Só a correção do valor de um compromisso já `completed`: nada revisado muda.
+  if (Object.keys(mudanca).length === 0) {
+    await registraPagamento();
+    return { id: atual.id, paid_cents: pagamento?.paid_cents ?? null };
+  }
+
+  const salvo = await alteraComRevisao(supabase,ctx,input.id,input.revision ?? Number(atual.revision),mudanca);
+  await registraPagamento();
+  if (pagamento && salvo) {
+    salvo.paid_cents = pagamento.paid_cents;
+    salvo.paid_currency = pagamento.paid_currency;
   }
 
   if (transicao) {
@@ -369,27 +432,21 @@ export async function alterarAgendamentoHandler(
       contactId: (atual.contact_id as string | null) ?? null,
       atividade: atividadeDaTransicao(atual.status as SituacaoAnterior, transicao),
       transicao,
-      empurrarAoGoogle: precisaEmpurrarAoGoogle(atual.status as SituacaoAnterior, transicao),
-      fusoDoCompromisso: salvo.time_zone,
+      fusoDoCompromisso: String(salvo.time_zone),
       nomeDoTipo: "Agendamento",
+      outcome: {revision:salvo.revision,source_kind:salvo.outcome_source_kind,message_id:salvo.outcome_message_id,recorded_at:salvo.outcome_recorded_at},
     });
 
-    // ⚠️ `completed` e `no_show` NÃO são auditados, por decisão do maestro: não
-    // são mutação de intenção, são registro de fato já consumado, e vivem na
-    // timeline. Procurar o tipo de audit deles e não achar é o esperado.
-    if (transicao === "rescheduled") {
-      void audit({
-        action: "agenda.appointment_rescheduled",
-        actorUserId: ctx.actor.type === "user" ? ctx.actor.id : null,
-        organizationId: ctx.organization_id,
-        resourceType: "calendar_appointment",
-        resourceId: atual.id as string,
-        requestId: ctx.requestId,
-        metadata: { de: atual.starts_at, para: salvo.starts_at },
-      });
-    }
+    void audit({action: transicao === "rescheduled" ? "agenda.appointment_rescheduled" : transicao === "completed" || transicao === "no_show" ? "agenda.appointment_outcome_recorded" : "agenda.appointment_updated",
+      actorUserId:ctx.actor.type === "user" ? ctx.actor.id : null,organizationId:ctx.organization_id,
+      resourceType:"calendar_appointment",resourceId:input.id,requestId:ctx.requestId,
+      metadata:{status:salvo.status,revision:salvo.revision,outcome_source_kind:salvo.outcome_source_kind,outcome_message_id:salvo.outcome_message_id}});
+
   }
 
+  if (!transicao) void audit({action:"agenda.appointment_updated",actorUserId:ctx.actor.type==="user"?ctx.actor.id:null,
+    organizationId:ctx.organization_id,resourceType:"calendar_appointment",resourceId:input.id,requestId:ctx.requestId,
+    metadata:{revision:salvo.revision,confirmation_next_at:salvo.confirmation_next_at}});
   return salvo as Record<string, unknown>;
 }
 
@@ -409,6 +466,7 @@ export async function cancelarAgendamentoHandler(
 ): Promise<Record<string, unknown>> {
   const atual = await exigeAgendamento(supabase, ctx, input.id, [
     "id",
+    "revision",
     "contact_id",
     "status",
     "time_zone",
@@ -416,31 +474,20 @@ export async function cancelarAgendamentoHandler(
 
   // Idempotente: cancelar o que já está cancelado devolve o estado, não erro —
   // quem chamou queria o compromisso desmarcado, e ele está.
+  if (input.revision !== undefined && input.revision !== Number(atual.revision)) throw new ApiError(409,"conflict",undefined,ctx.requestId,"O compromisso mudou. Recarregue antes de confirmar.");
   if (atual.status === "cancelled") {
     return { id: atual.id, status: "cancelled", ja_estava: true };
   }
 
-  const { data: salvo, error: erroUpdate } = await supabase
-    .from("calendar_appointments")
-    .update({
-      status: "cancelled",
-      cancelled_at: new Date().toISOString(),
-      cancellation_reason: input.reason,
-    })
-    .eq("organization_id", ctx.organization_id)
-    .eq("id", atual.id as string)
-    .select("id, status, cancelled_at, cancellation_reason")
-    .single();
-  if (erroUpdate) {
-    throw new ApiError(500, "internal_error", undefined, ctx.requestId, erroUpdate.message);
-  }
+  const salvo = await alteraComRevisao(supabase,ctx,input.id,input.revision ?? Number(atual.revision),{
+    status:"cancelled",cancellation_reason:input.reason,
+  });
 
   await fecharOLaco(supabase, ctx, {
     appointmentId: atual.id as string,
     contactId: (atual.contact_id as string | null) ?? null,
     atividade: atividadeDaTransicao(atual.status as SituacaoAnterior, "cancelled"),
     transicao: "cancelled",
-    empurrarAoGoogle: precisaEmpurrarAoGoogle(atual.status as SituacaoAnterior, "cancelled"),
     fusoDoCompromisso: atual.time_zone as string,
     nomeDoTipo: "Agendamento",
   });
@@ -531,11 +578,11 @@ function autorParaCriacao(actor: Actor): string {
 }
 
 /**
- * Os TRÊS emissores do laço, no mesmo fluxo da mutação.
+ * Vínculo e atividade no mesmo fluxo da mutação.
  *
  * `crm_lead_links` faz o compromisso PERTENCER ao negócio (é por ele que o
- * dossiê o lista); `crm_lead_activities` é o que aparece na TIMELINE; `event_log`
- * é o que leva o compromisso ao Google. Só o vínculo e nada aparece na tela; só
+ * dossiê o lista); `crm_lead_activities` aparece na timeline. A pendência Google
+ * vem da revisão publicável persistida. Só o vínculo e nada aparece na tela; só
  * a atividade e o dossiê não acha o compromisso.
  *
  * ⚠️ `crm_lead_activities.lead_id` é NOT NULL: agendamento de contato que ainda
@@ -550,26 +597,12 @@ async function fecharOLaco(
     contactId: string | null;
     atividade: string | null;
     transicao: Transicao;
-    empurrarAoGoogle: boolean;
     fusoDoCompromisso: string;
     nomeDoTipo: string;
+    outcome?: Record<string,unknown>;
   },
 ): Promise<void> {
-  if (args.empurrarAoGoogle) {
-    // ⚠️ AINDA SEM CONSUMIDOR. `agenda.appointment.push_to_google` não é
-    // declarado por handler nenhum, e `drain.ts:54` filtra por
-    // `.in("event_type", handledTypes)` — a linha nunca é SELECIONADA e fica
-    // `pending` para sempre: não vira `dead`, não conta tentativa, não acende
-    // aviso. E não há sonda sobre `event_log` parado. O consumidor é da frente
-    // do Google; o contrato e o payload (com o fuso) já estão prontos aqui.
-    await supabase.from("event_log").insert({
-      organization_id: ctx.organization_id,
-      event_type: "agenda.appointment.push_to_google",
-      entity_kind: "calendar_appointment",
-      entity_id: args.appointmentId,
-      payload: { appointment_id: args.appointmentId, time_zone: args.fusoDoCompromisso },
-    });
-  }
+  // Pendência Google é derivada da revisão publicável; não emite evento sem consumer.
 
   const leadId = args.contactId ? await leadAtivoDoContato(supabase, ctx, args.contactId) : null;
 
@@ -628,6 +661,7 @@ async function fecharOLaco(
     sourceId: args.appointmentId,
     actor: ctx.actor,
     reason: `${args.nomeDoTipo} — ${args.atividade}`,
+    payload: args.outcome ? {outcome:args.outcome} : {},
     // ⚠️ `sync` não existe no CHECK de `actor_kind`; `autorParaTimeline` mapeia.
     actorKind: autorParaTimeline(ctx.actor.type),
   } as never);
@@ -665,4 +699,12 @@ async function leadAtivoDoContato(
     defaultPipelineId: (padrao as { id: string } | null)?.id ?? null,
   });
   return rota.routed ? rota.leadId : null;
+}
+
+async function alteraComRevisao(supabase:SB,ctx:HandlerCtx,id:string,revision:number,patch:Record<string,unknown>):Promise<Record<string,unknown>> {
+  const {data,error}=await supabase.rpc("fn_appointment_change",{p_org:ctx.organization_id,p_id:id,p_revision:revision,p_patch:patch});
+  if(error) throw new ApiError(error.code === "40001" ? 409 : error.code === "42501" ? 403 : error.code === "P0002" ? 404 : 422,
+    error.code === "40001" ? "conflict" : error.code === "42501" ? "forbidden" : error.code === "P0002" ? "not_found" : "validation_failed",undefined,ctx.requestId,
+    error.code === "40001" ? "Este compromisso mudou. Atualize os dados antes de confirmar novamente." : "Não foi possível alterar este compromisso. Confira a presença, o horário e a mensagem vinculada.");
+  return data as Record<string,unknown>;
 }

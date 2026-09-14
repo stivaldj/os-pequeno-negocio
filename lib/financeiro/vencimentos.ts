@@ -1,6 +1,6 @@
 /**
  * Vencimentos — o que vence hoje, o que já venceu e o que vem na semana
- * (Spec 0003, "O dinheiro"; migration 0209, `financial_obligations`).
+ * (Spec 0003, "O dinheiro"; migration 0244, `financial_obligations`).
  *
  * Conta a Pagar e Conta a Receber são uma tabela só, com `direction`: o
  * `CONTEXT.md` as define numa entrada única de glossário. Por isso cada grupo

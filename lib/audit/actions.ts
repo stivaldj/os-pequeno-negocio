@@ -52,6 +52,10 @@ export const AUDIT_ACTIONS = [
   "lead.won",
   "lead.lost",
   "lead.bulk_action",
+  // A importação de planilha (extração do PR #418). O GESTO é auditado além dos
+  // N `lead.created`: "quem despejou 300 negócios neste funil, e quando" é a
+  // pergunta que se faz depois, e ela não se responde contando linhas soltas.
+  "lead.imported",
   "contact.created",
   "contact.updated",
   "contacts.imported",
@@ -59,10 +63,22 @@ export const AUDIT_ACTIONS = [
   "contact.merge_pending",
   "contact.merged",
   "lgpd.anonymize_executed",
+  // A cascata retomando o que uma execução interrompida não terminou (#310).
+  "lgpd.anonymize_catchup",
   "member.invited",
+  "team.interface_changed",
   "member.accepted",
   "member.role_changed",
   "member.revoked",
+  // O inverso de `member.revoked`. Auditável pelo mesmo motivo que ela: a
+  // pergunta "quem devolveu o acesso desta pessoa, e quando?" só tem resposta
+  // aqui — a coluna `revoked_at` volta a NULL e não guarda histórico.
+  "member.reactivated",
+  // Um convite PENDENTE cancelado na tela de Equipe (migration 0238). Distinto
+  // de `member.revoked` (tira acesso de quem já entrou): aqui ninguém chegou a
+  // ser membro. O REENVIO de um convite audita como `member.invited` — é uma
+  // nova emissão do mesmo convite.
+  "member.invite_revoked",
   "token.created",
   "token.revoked",
   "profile.updated",
@@ -158,6 +174,10 @@ export const AUDIT_ACTIONS = [
   "ai_agent.version_created",
   "ai_agent.version_updated",
   "ai_agent.tested",
+  "ai_agent.reconciled",
+  "ai_reply.generated",
+  "ai_reply.approved",
+  "ai_reply.rejected",
   "ai_agent.reverted",
   "ai.dispatcher_run",
   "ai.pacing_knobs_updated",
@@ -168,6 +188,7 @@ export const AUDIT_ACTIONS = [
   "ai.org_memory_entry_updated",
   /** Provedor/modelo de um ponto do sistema que usa IA foi trocado no painel. */
   "ai.purpose_binding_updated",
+  "ai.org_default_updated",
   // Ligar/desligar uma das duas verificações que consultam modelo. Auditável
   // porque muda o que o sistema confere antes de falar com o cliente — e porque
   // custa dinheiro por mensagem.
@@ -176,6 +197,7 @@ export const AUDIT_ACTIONS = [
   "ai_agent.run_completed",
   "ai_agent.run_failed",
   "channel.connected",
+  "channel.ai_access_updated",
   "channel.reconnected",
   // Duas ações distintas de propósito: `deleted` apagou a linha (canal virgem),
   // `archived` só a escondeu porque conversas/mensagens ainda a referenciam.
@@ -188,6 +210,21 @@ export const AUDIT_ACTIONS = [
   // `lib/channels/reactivate.ts` — o único caminho de volta, e é o que faz a
   // frase acima valer para os DOIS casos em vez de para o que lembraram.
   "channel.reactivated",
+  // Chamada de voz WhatsApp (WaCalls, spec 18) — pareamento do segundo
+  // dispositivo vinculado, opt-in por org. Admin only.
+  "voice.session_pair_started",
+  // As mutações da chamada em si. Todas auditadas porque todas têm efeito no
+  // mundo: uma ligação sai do CRM para o telefone de uma pessoa, alguém a
+  // atende ou a recusa, e alguém a derruba. Um registro em `voice_calls` diz o
+  // QUE aconteceu; a trilha diz QUEM mandou acontecer, e são perguntas
+  // diferentes quando o time inteiro compartilha o mesmo número.
+  "voice.call_started",
+  "voice.call_accepted",
+  "voice.call_rejected",
+  "voice.call_ended",
+  // Troca de SDP: é o que abre o ÁUDIO de uma ligação para um navegador. Sem
+  // esta linha não há como responder "quem estava ouvindo esta conversa".
+  "voice.call_media_attached",
   "authz.denied",
   "team.role_changed",
   "leads.bulk_assigned",
@@ -200,6 +237,7 @@ export const AUDIT_ACTIONS = [
   // uma demanda, e qual. Sem isto, a única mutação que fecha o vazamento seria
   // a única sem rastro.
   "demanda.proximo_passo_definido",
+  "demanda.encerrada",
   "routing.worker_run",
   "attendant.heartbeat_swept",
   "webhook.source_created",
@@ -244,12 +282,14 @@ export const AUDIT_ACTIONS = [
   "auth.signup_failed",
   "auth.signup_confirmed",
   "auth.signup_provision_failed",
+  "auth.signup_provision_recovery_failed",
   "auth.email_link_rejected",
   "auth.password_reset_requested",
   "auth.password_reset_request_failed",
   "auth.password_reset_completed",
   "auth.password_reset_failed",
   "tenant.created_by_signup",
+  "tenant.created_by_recovery",
   "conversation.snoozed",
   "conversation.snooze_cancelled",
   "conversation.snooze_watcher_run",
@@ -286,6 +326,31 @@ export const AUDIT_ACTIONS = [
   // event_log (nenhum handler consumiria o tipo — ver register-handlers.ts).
   "platform_branding.updated",
   "platform_google_oauth.updated",
+  // A conexão da ORGANIZAÇÃO com a conta de anúncios (migration 0213).
+  // Auditável porque o token gravado aqui escreve conversões na conta de
+  // mídia do cliente: "quem apontou minhas vendas para este destino?" só tem
+  // resposta nesta trilha. COM `organization_id`, diferente das duas linhas
+  // acima — é mutação de tenant, e cada organização tem a sua conta.
+  //
+  // O `metadata` carrega o dataset (identificador, não segredo) e um booleano
+  // dizendo se o token foi trocado. O token, nem em metadata.
+  "ad_platform_connection.updated",
+  // A conexão de LEITURA da organização com a conta de anúncios (0214).
+  // Ação SEPARADA da de cima, e não um `metadata.purpose` na mesma: a pergunta
+  // que cada trilha responde é diferente. "Quem apontou minhas vendas para este
+  // destino?" é sobre dinheiro saindo; "quem deu a alguém acesso de leitura ao
+  // meu orçamento de mídia?" é sobre dado comercial vazando. Fundi-las
+  // obrigaria a ler o metadata para saber qual das duas aconteceu — o mesmo
+  // motivo pelo qual `branding.updated` não virou `org.updated`.
+  //
+  // O `metadata` carrega o id da conta padrão (identificador, não segredo) e um
+  // booleano dizendo se o token foi trocado. O token, nem em metadata.
+  "ad_insights_connection.updated",
+  // Desconectar APAGA o token (a 0205 não tem `enabled`, e o porquê está no
+  // cabeçalho dela). Auditada à parte de `.updated` porque some uma credencial:
+  // a tela de Meta Ads para de funcionar para todo mundo da organização, e a
+  // trilha precisa dizer quem fez isso e quando.
+  "ad_insights_connection.deleted",
   // A marca da ORGANIZAÇÃO (nome + cor) trocada em `organizations.settings.branding`
   // — mutação de TENANT, e por isso COM `organization_id` e com `resource_id` =
   // o uuid da org. É outra ação, e não `org.updated`, porque a pergunta que a
@@ -366,6 +431,10 @@ export const AUDIT_ACTIONS = [
   "agenda.tipo_criado",
   "agenda.tipo_alterado",
   "agenda.tipo_desativado",
+  // A rodada que AVISOU alguém do próprio compromisso. Mensagem que saiu para o
+  // telefone de um cliente é efeito, e efeito audita — mas só a rodada que
+  // enviou: a que varreu e não achou ninguém a avisar não é mutação.
+  "agenda.lembrete_enviado",
   // A rodada de renovação — e ela só audita quando FEZ algo, como manda a regra
   // do cron desta base. Uma linha por rodada com efeito, carregando a contagem:
   // é o que permite responder "quantas agendas precisaram reconectar esta
@@ -375,17 +444,21 @@ export const AUDIT_ACTIONS = [
   // `nossos_ignorados` de propósito: é o número que prova o anti-eco
   // funcionando — sem ele, esses eventos teriam virado compromisso fantasma.
   "agenda.google.sync_executado",
+  "agenda.google_selection_updated",
+  "agenda.google_catalog_updated",
+  "agenda.meet_action_requested",
+  "agenda.google_resolution_requested",
 
   // ── O compromisso em si (frentes 1 e 5 do Calendário Vivo) ──────────────
   // Marcar, remarcar e cancelar são mutações de um compromisso com hora e
   // pessoa. Cancelar em especial: é a única das três que alguém pode querer
   // negar ter feito.
   //
-  // Não há `agenda.appointment_completed` nem `_no_show` aqui de propósito.
-  // Esses dois não são mutação de intenção — são o registro de um fato que já
-  // aconteceu no mundo, e vivem na timeline do lead (`ATIVIDADES_DA_AGENDA`,
-  // em `lib/agenda/tipos.ts`), não na trilha de quem-fez-o-quê.
   "agenda.appointment_created",
+  "agenda.appointment_outcome_recorded",
+  "agenda.appointment_updated",
+  "agenda.confirmation_sweep_run",
+  "agenda.settings_updated",
   "agenda.appointment_rescheduled",
   "agenda.appointment_cancelled",
   /** ADR-0017: a recepção marcou "compareceu" com valor pago — a Venda Confirmada. */
@@ -455,6 +528,35 @@ export const AUDIT_ACTIONS = [
   // ─── Relatório das 8h (Fase 7): resumo diário ao Dono ───
   /** Relatório diário entregue ao Dono (`lib/relatorio/enviar.ts`), por Conta. Metadata: seções incompletas e contagens de atendimento. */
   "relatorio.enviado",
+
+  // Zona de perigo de Configurações › Organização: o admin zera os dados de
+  // atendimento da própria organização para recomeçar os testes. Um DELETE não
+  // deixa rastro sozinho — esta linha é o único registro de que a organização
+  // foi esvaziada, por quem, e de quanto (as contagens vão no metadata).
+  "org.dados_operacionais_apagados",
+
+  // O catálogo da loja (migration 0204). Preço de venda é dado que a equipe
+  // disputa — quem mudou e quando precisa ficar registrado.
+  "catalog_product.created",
+  "catalog_product.updated",
+  "catalog_product.deleted",
+  "catalog_product.imported",
+
+  // As tarefas do CRM (migration 0210). Tarefa é combinado de trabalho entre
+  // pessoas do time — quem a criou, quem mudou o prazo e quem a apagou é
+  // exatamente o que se disputa depois de um cliente ficar sem retorno.
+  "crm_task.created",
+  "crm_task.updated",
+  "crm_task.deleted",
+  "organization.switched",
+
+  // Chamada de voz WhatsApp (spec 18, migration 0234). Ligá-la vincula um
+  // SEGUNDO aparelho ao número que já atende, por um caminho que não é o
+  // oficial — o risco é a conta ser bloqueada. Estas duas linhas são a resposta
+  // a "quem autorizou isso" e a "quando isso foi desfeito"; sem elas, depois de
+  // um bloqueio não há como saber nem uma coisa nem outra.
+  "voice.opt_in_changed",
+  "voice.session_unpaired",
 ] as const;
 
 /** Um código de auditoria. Derivado de `AUDIT_ACTIONS` — não redigite a lista. */

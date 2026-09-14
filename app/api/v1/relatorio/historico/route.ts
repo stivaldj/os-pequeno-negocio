@@ -1,7 +1,7 @@
 /**
  * HISTÓRICO DO RELATÓRIO DAS 8h — `GET /api/v1/relatorio/historico`.
  *
- * Lê `daily_reports` (migration 0210): uma linha por Conta e dia, com o texto
+ * Lê `daily_reports` (migration 0245): uma linha por Conta e dia, com o texto
  * que saiu e as seções que ficaram incompletas naquele dia. Leitura pura —
  * quem grava é `lib/relatorio/enviar.ts`, chamado pelo cron.
  *

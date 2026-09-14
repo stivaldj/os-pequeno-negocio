@@ -14,6 +14,7 @@
 import type { Queryable } from '../../queue/queue';
 import type { CrmEdgeConfig } from './mcp-client';
 import { deriveLgpdFromContact, type LgpdInput } from '../../guardrails/lgpd/legal-basis';
+import { isoLocalComOffset } from '@/lib/tempo/agora';
 
 /**
  * Heurística conservadora de contagem: ~3,5 chars/token para pt-br (BPE real fica
@@ -38,6 +39,15 @@ export interface LeadContextMessage {
   direction: 'inbound' | 'outbound';
   /** Corpo textual; mídia usa o derivado (transcrição/visão/pdf) ou marcador [tipo]. */
   body: string;
+  /**
+   * ISO 8601 no FUSO DA ORGANIZAÇÃO, com o offset real daquele instante
+   * (`2026-09-02T15:45:38-03:00`) — nunca UTC cru. Um agente instruído a ler o
+   * horário de cada mensagem para decidir se a loja está aberta precisa da hora
+   * de PAREDE do tenant, a mesma que o bloco `## Agora` do turno usa; entregar
+   * aqui o `+00` do fuso da sessão do Postgres foi o defeito medido em produção
+   * que `isoLocalComOffset` (lib/tempo/agora.ts) existe para consertar. Ainda
+   * parseável por `Date.parse` (o offset preserva o instante exato).
+   */
   sent_at: string;
   /** Metadados de mídia (Onda 3): presentes só em mensagens com mídia. */
   type?: string;
@@ -64,7 +74,18 @@ export interface UltimaDecisaoHumana {
 
 /** Payload curado que o modelo recebe. */
 export interface LeadContext {
+  /** ⚠️ É o id do CONTATO, não de um lead do funil. Ver `contact_id` abaixo. */
   lead_id: string;
+  /**
+   * O mesmo valor de `lead_id`, com o nome verdadeiro (issue #509).
+   *
+   * OPCIONAL no tipo, e não por preguiça: exigir o campo obrigaria a editar
+   * fixtures em `tests/invariants/**`, que é CONGELADO pelo hook de governança
+   * (`loop/hooks/freeze-invariants.sh` — invariante existente não se edita). A
+   * produção sempre o preenche; quem constrói contexto à mão num teste não
+   * precisa dele.
+   */
+  contact_id?: string;
   contact: {
     name: string | null;
     phone: string | null;
@@ -74,6 +95,7 @@ export interface LeadContext {
     is_blocked: boolean;
   };
   conversation_id: string | null;
+  previous_service?: { label: string; outcomes: string[] };
   /**
    * `null` quando nenhum humano decidiu nada sobre propostas deste contato.
    *
@@ -150,13 +172,13 @@ interface HistoryRow {
   media_storage_path: string | null;
   media_mime: string | null;
   media_derived_text: string | null;
-  sent_at: string;
+  sent_at: Date;
 }
 
 export async function getLeadContext(
   db: Queryable,
   _cfg: CrmEdgeConfig,
-  input: { tenantId: string; leadId: string; conversationId?: string | null },
+  input: { tenantId: string; leadId: string; conversationId?: string | null; fuso: string },
   knobs: LeadContextKnobs,
 ): Promise<LeadContextResult> {
   const { rows: contactRows } = await db.query<ContactRow>(
@@ -208,10 +230,14 @@ export async function getLeadContext(
     ? (
         await db.query<HistoryRow>(
           `select direction, type, body, media_url, media_storage_path, media_mime,
-                  media_derived_text, sent_at::text as sent_at
+                  media_derived_text, sent_at
            from messages
            where organization_id = $1 and conversation_id = $2
              and direction in ('inbound', 'outbound')
+             and exists(select 1 from conversations c where c.organization_id=$1 and c.id=$2
+               and ((messages.direction='inbound' and messages.service_revision=c.service_revision
+                 and messages.demanda_id is not distinct from c.current_demanda_id)
+                 or (messages.direction='outbound' and messages.sent_at >= c.service_started_at)))
            order by sent_at desc, id desc
            limit $3`,
           [input.tenantId, conversationId, knobs.historyLimit],
@@ -231,9 +257,25 @@ export async function getLeadContext(
     false,
   );
 
+  const { rows: previousOutcomes } = await db.query<{ desfecho: string }>(
+    `select distinct d.desfecho from demandas d join demanda_conversas dc on dc.demanda_id=d.id and dc.organization_id=d.organization_id
+     where d.organization_id=$1 and dc.conversation_id=$2 and d.fechada_em is not null limit 5`,
+    [input.tenantId, conversationId]);
+
   const context = fitToBudget(
     {
+      previous_service: { label: 'Histórico encerrado. Desfechos anteriores não são tarefas ou compromissos pendentes.', outcomes: previousOutcomes.map((d) => d.desfecho) },
+      // ⚠️ `lead_id` aqui é, e sempre foi, o id do CONTATO (ver o comentário da
+      // consulta acima e `inbound-turn.ts:1121`). O nome mente, e o modelo
+      // acreditava: passava este valor ao parâmetro `lead_id` das ferramentas
+      // de agenda, que espera um NEGÓCIO do funil. (issue #509)
+      //
+      // O campo antigo fica — ele circula por follow-up, case-reply e escalação,
+      // e por invariantes congelados; trocar o nome custa uma wave inteira e
+      // somar o certo custa uma linha. `contact_id` é a porta para o modelo
+      // acertar; as descrições das ferramentas apontam para ela.
       lead_id: input.leadId,
+      contact_id: input.leadId,
       contact: {
         name: contact.display_name ?? contact.name,
         phone: contact.phone_number,
@@ -246,6 +288,7 @@ export async function getLeadContext(
     },
     history,
     knobs.maxTokens,
+    input.fuso,
   );
   return { ok: true, context, tokenCount: countPayloadTokens(JSON.stringify(context)), lgpd };
 }
@@ -260,6 +303,7 @@ function fitToBudget(
   base: Omit<LeadContext, 'messages'>,
   history: HistoryRow[],
   maxTokens: number,
+  fuso: string,
 ): LeadContext {
   let messages: LeadContextMessage[] = history.map((m) => {
     const hasMedia = Boolean(m.media_storage_path || m.media_url);
@@ -273,7 +317,9 @@ function fitToBudget(
     return {
       direction: m.direction,
       body,
-      sent_at: m.sent_at,
+      // Hora de PAREDE do tenant, não UTC cru — ver o comentário de `sent_at` na
+      // interface acima e o cabeçalho de `isoLocalComOffset`.
+      sent_at: isoLocalComOffset(m.sent_at, fuso),
       ...(hasMedia ? { type: m.type, media_storage_path: m.media_storage_path, media_mime: m.media_mime } : {}),
     };
   });

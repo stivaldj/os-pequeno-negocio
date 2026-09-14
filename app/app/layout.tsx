@@ -1,3 +1,4 @@
+import { InterfaceRefresh } from "@/hooks/auth/InterfaceRefresh";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { isMfaEnrolled, loadAuthUser, requiresMfa, resolveActiveOrg } from "@/lib/auth/server";
@@ -12,22 +13,34 @@ import { resolverMarcaDaOrganizacao } from "@/lib/branding/organizacao";
 import { env } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
-  IMPERSONATE_COOKIE_NAME,
-  verifyImpersonateCookie,
-} from "@/lib/impersonate/cookie";
-import {
   ImpersonateBanner,
-  type ImpersonatingInfo,
 } from "@/components/app/ImpersonateBanner";
 import { ConexaoCaidaBanner } from "@/components/app/ConexaoCaidaBanner";
 import { IdiomaProvider } from "@/lib/i18n/IdiomaProvider";
 import { listarConexoesCaidas, type ConexaoCaida } from "@/lib/channels/health";
+import { VoiceCallProvider } from "@/components/voice/VoiceCallContext";
+import { acessoFoiRevogado } from "@/lib/auth/vinculo-revogado";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await loadAuthUser();
   if (!user) redirect("/login");
 
   let activeOrg = await resolveActiveOrg(user);
+
+  // Sem organização ativa existem DOIS estados, e eles pedem telas opostas:
+  //
+  //  - nunca teve  → provisionamento que falhou no signup. `/get-started`
+  //                  existe exatamente para isso e continua sendo o caminho.
+  //  - teve e foi revogada → precisa SABER disso. Até 2026-09-10 essa pessoa
+  //                  caía aqui mesmo, via a casca vazia e a oferta "Configure
+  //                  sua organização" — uma revogação virando criação de
+  //                  tenant. Medido numa instalação real.
+  //
+  // A consulta só roda neste ramo, que é o raro: quem tem organização não paga
+  // nada por ela.
+  if (!activeOrg && !user.support && (await acessoFoiRevogado(user.id))) {
+    redirect("/acesso-revogado");
+  }
 
   /**
    * A cor desta organização, serializada, ou `null` quando ela não tem uma.
@@ -48,7 +61,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       .select("onboarded_at, status, settings")
       .eq("id", activeOrg.orgId)
       .maybeSingle();
-    if (orgRow && !orgRow.onboarded_at) redirect("/onboarding");
+    if (orgRow && !orgRow.onboarded_at && !user.support) redirect("/onboarding");
     if (orgRow?.status === "suspended") redirect("/account-suspended");
     // G4-02: expõe visibility_mode ao client (inbox decide visões visíveis).
     // Fonte confiável (admin client, org do cookie validado) — nunca do body.
@@ -121,29 +134,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const store = await cookies();
   const collapsed = store.get("sidebar_collapsed")?.value === "1";
 
-  // Impersonate (S-11.07): verify cookie server-side and resolve tenant name.
-  // Middleware already validates HMAC + expiry on /app/*; we re-verify here as
-  // defence-in-depth and to extract the payload safely.
-  let impersonating: ImpersonatingInfo | null = null;
-  const impCookie = store.get(IMPERSONATE_COOKIE_NAME)?.value;
-  if (impCookie) {
-    const result = verifyImpersonateCookie(impCookie);
-    if (result.valid && result.payload) {
-      const admin = createAdminClient();
-      const { data: org } = await admin
-        .from("organizations")
-        .select("display_name")
-        .eq("id", result.payload.tenantId)
-        .maybeSingle();
-      if (org) {
-        impersonating = {
-          tenantId: result.payload.tenantId,
-          tenantName: org.display_name,
-          expiresAt: new Date(result.payload.exp * 1000).toISOString(),
-        };
-      }
-    }
-  }
+  const impersonating = user.support ? {
+    tenantId: user.support.organization_id, tenantName: user.support.name,
+    expiresAt: user.support.expires_at, accessMode: user.support.access_mode,
+  } : null;
 
   const enrolled = await isMfaEnrolled();
   // A decisão deixou de ser uma constante de papel: ela lê a política de quem
@@ -154,7 +148,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     user.id,
     activeOrg?.orgId,
   );
-  const shell = <AppShell sidebarCollapsed={collapsed}>{children}</AppShell>;
+  const shell = (
+    <VoiceCallProvider>
+      <AppShell sidebarCollapsed={collapsed}>{children}</AppShell>
+    </VoiceCallProvider>
+  );
 
   return (
     // O idioma envolve a árvore inteira e recebe o código PRONTO — ele não
@@ -162,6 +160,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     // acoplamento com a autenticação que derrubou 32 casos.
     <IdiomaProvider locale={user.idioma}>
     <AuthProvider user={user} activeOrg={activeOrg}>
+      <InterfaceRefresh userId={user.id} org={activeOrg} support={!!user.support} />
       {/*
         O MARCADOR da marca da organização — o elemento cuja existência define o
         escopo `body:has([data-marca-org])` (lib/branding/css.ts).

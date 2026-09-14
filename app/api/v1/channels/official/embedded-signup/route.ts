@@ -13,6 +13,7 @@ import { z } from "zod";
 import { fail, ok } from "@/lib/api/wrappers";
 import { audit } from "@/lib/audit";
 import { requireRole } from "@/lib/auth/require-role";
+import { requireSupportWrite } from "@/lib/impersonate/support";
 import {
   appDaMetaDoAmbiente,
   assinarWebhookNaWaba,
@@ -31,6 +32,9 @@ const corpoSchema = z.object({
 });
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  const supportDenied = await requireSupportWrite();
+  if (supportDenied) return supportDenied;
+
   const requestId = randomUUID();
   const authz = await requireRole("admin", { requestId, resource: "channels_official" });
   if (!authz.ok) return authz.response;

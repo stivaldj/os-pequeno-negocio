@@ -1,5 +1,5 @@
 /**
- * CATEGORIAS DO LIVRO-CAIXA — `GET` lista, `PUT` cria-ou-altera (migration 0209).
+ * CATEGORIAS DO LIVRO-CAIXA — `GET` lista, `PUT` cria-ou-altera (migration 0244).
  *
  * Uma categoria por organização e `slug` (`unique (organization_id, slug)`),
  * por isso o verbo é `PUT` e a gravação é um upsert: o `slug` é a identidade
@@ -21,6 +21,7 @@ import { z } from "zod";
 import { fail, ok } from "@/lib/api/wrappers";
 import { audit } from "@/lib/audit";
 import { requireRole } from "@/lib/auth/require-role";
+import { requireSupportWrite } from "@/lib/impersonate/support";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +29,7 @@ export const dynamic = "force-dynamic";
 const COLUNAS = "id, slug, name, kind, match_terms, created_at, updated_at";
 
 /**
- * Os mesmos limites do CHECK da migration 0209 — 422 em vez de 500 de
+ * Os mesmos limites do CHECK da migration 0244 — 422 em vez de 500 de
  * constraint: `slug ~ '^[a-z0-9][a-z0-9-]{1,60}$'`, `length(name) between 1
  * and 120`, `kind in ('income','expense')`.
  *
@@ -61,6 +62,9 @@ export async function GET(req: NextRequest): Promise<Response> {
 }
 
 export async function PUT(req: NextRequest): Promise<Response> {
+  const supportDenied = await requireSupportWrite();
+  if (supportDenied) return supportDenied;
+
   const requestId = req.headers.get("x-request-id") ?? undefined;
   const authz = await requireRole("manager", { requestId, resource: "ledger_categories" });
   if (!authz.ok) return authz.response;

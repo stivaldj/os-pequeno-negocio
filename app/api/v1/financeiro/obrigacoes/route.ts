@@ -1,5 +1,5 @@
 /**
- * CONTAS A PAGAR E A RECEBER — `GET` lista, `POST` cadastra (migration 0209).
+ * CONTAS A PAGAR E A RECEBER — `GET` lista, `POST` cadastra (migration 0244).
  *
  * Uma tabela só para as duas contas, com `direction` (decisão 4 do plano da
  * Fase 6: o `CONTEXT.md` define "Compromisso financeiro com data" numa entrada
@@ -20,6 +20,7 @@ import { z } from "zod";
 import { fail, ok } from "@/lib/api/wrappers";
 import { audit } from "@/lib/audit";
 import { requireRole } from "@/lib/auth/require-role";
+import { requireSupportWrite } from "@/lib/impersonate/support";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -45,7 +46,7 @@ const dia = z
   .regex(/^\d{4}-\d{2}-\d{2}$/, "A data vai no formato AAAA-MM-DD.")
   .refine((s) => !Number.isNaN(Date.parse(`${s}T00:00:00Z`)) && new Date(`${s}T00:00:00Z`).toISOString().slice(0, 10) === s, "Essa data não existe no calendário.");
 
-/** Os mesmos limites dos CHECK da 0209: `direction`, `length(description) between 1 and 200`, `amount_cents > 0`, `currency char(3)`. */
+/** Os mesmos limites dos CHECK da 0244: `direction`, `length(description) between 1 and 200`, `amount_cents > 0`, `currency char(3)`. */
 const criarSchema = z.object({
   direction: z.enum(["payable", "receivable"]),
   description: z.string().trim().min(1, "A conta precisa de descrição.").max(200),
@@ -84,6 +85,9 @@ export async function GET(req: NextRequest): Promise<Response> {
 }
 
 export async function POST(req: NextRequest): Promise<Response> {
+  const supportDenied = await requireSupportWrite();
+  if (supportDenied) return supportDenied;
+
   const requestId = req.headers.get("x-request-id") ?? undefined;
   const authz = await requireRole("manager", { requestId, resource: "financial_obligations" });
   if (!authz.ok) return authz.response;

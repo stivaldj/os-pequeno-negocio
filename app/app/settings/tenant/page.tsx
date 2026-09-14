@@ -5,7 +5,9 @@ import { ROLE_RANK } from "@/lib/auth/types";
 import { configuracaoClinica } from "@/lib/clinica/config";
 import { whatsappDoDono } from "@/lib/dono/config";
 import { traduzir } from "@/lib/i18n/dicionario";
+import { moedaServidaOu } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
+import { ZonaDePerigoDaOrganizacao } from "./_danger-zone";
 import { TenantForm } from "./_form";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +18,7 @@ interface OrgRow {
   cnpj: string | null;
   timezone: string;
   locale: string;
+  currency: string;
   media_retention_days: number;
   dpo_email: string | null;
   privacy_policy_url: string | null;
@@ -26,7 +29,7 @@ export default async function TenantSettingsPage() {
   const user = await requireAuth();
   const activeOrg = await resolveActiveOrg(user);
   if (!activeOrg) redirect("/app");
-  if (!user.is_platform_admin && ROLE_RANK[activeOrg.role] < ROLE_RANK.admin) {
+  if (!(user.is_platform_admin && !user.support) && ROLE_RANK[activeOrg.role] < ROLE_RANK.admin) {
     redirect("/403");
   }
 
@@ -34,7 +37,7 @@ export default async function TenantSettingsPage() {
   const { data } = await supabase
     .from("organizations")
     .select(
-      "display_name, legal_name, cnpj, timezone, locale, media_retention_days, dpo_email, privacy_policy_url, settings",
+      "display_name, legal_name, cnpj, timezone, locale, currency, media_retention_days, dpo_email, privacy_policy_url, settings",
     )
     .eq("id", activeOrg.orgId)
     .maybeSingle();
@@ -64,6 +67,7 @@ export default async function TenantSettingsPage() {
             // `en-US` saiu da lista (nunca teve tradução). Uma linha antiga
             // com ele cai no padrão em vez de quebrar a tela.
             locale: row.locale === "es" ? "es" : "pt-BR",
+            currency: moedaServidaOu(row.currency),
             media_retention_days: row.media_retention_days,
             dpo_email: row.dpo_email,
             privacy_policy_url: row.privacy_policy_url,
@@ -73,6 +77,7 @@ export default async function TenantSettingsPage() {
           }}
         />
       )}
+      {row && <ZonaDePerigoDaOrganizacao displayName={row.display_name} />}
     </div>
   );
 }

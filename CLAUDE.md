@@ -18,6 +18,19 @@ Cinco papéis canônicos, com `wontfix` renomeado para `descartado`, mais labels
 
 Single-context: `CONTEXT.md` na raiz e ADRs em `docs/adr/`. Ver `docs/agents/domain.md`. As leis herdadas do upstream vivem em `docs/doctrine/` (canal, packaging, versionamento, sistema vivo, separação fala × operação).
 
+## Guias embutidos do upstream
+
+`.agents/skills/` (fonte) com espelho em `.claude/skills/` (`pnpm skills:sync`). Vêm do DeskcommCRM e valem para a camada herdada; a doutrina deste fork (acima) vence quando divergir.
+
+| Quando | Guia |
+| --- | --- |
+| instalar, atualizar ou consertar a instalação numa VPS | `deskcomm-instalar` |
+| configurar o CRM para um cliente ou nicho | `deskcomm-cliente-novo` |
+| desempenho, conversão, custo de IA, funil | `deskcomm-metricas` |
+| o agente responde errado ou passa tudo para humano | `deskcomm-prompt` |
+| contribuir de volta ao upstream (PR em `melgarafael/DeskcommCRM`) | `deskcomm-contribuir` |
+| escrever ou revisar código na camada herdada | `deskcomm-doutrina` e `sistema-vivo` |
+
 ## Idioma
 
 Docs em português do Brasil; código, nomes de arquivo e commits em inglês. Detalhe em `docs/agents/domain.md`.

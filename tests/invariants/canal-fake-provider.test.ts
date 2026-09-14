@@ -1,5 +1,5 @@
 /**
- * O banco aceita `fake_channel` como provider de sessão (migration 0204) sem
+ * O banco aceita `fake_channel` como provider de sessão (migration 0239) sem
  * afrouxar nada: o `provider_ref_check` continua exigindo a ref, e o isolamento
  * entre organizações continua valendo para a sessão fake como para qualquer
  * outra.

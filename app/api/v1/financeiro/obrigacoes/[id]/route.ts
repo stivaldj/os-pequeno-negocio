@@ -27,6 +27,7 @@ import { z } from "zod";
 import { fail, ok } from "@/lib/api/wrappers";
 import { audit } from "@/lib/audit";
 import { requireRole } from "@/lib/auth/require-role";
+import { requireSupportWrite } from "@/lib/impersonate/support";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -45,7 +46,7 @@ const dia = z
   .regex(/^\d{4}-\d{2}-\d{2}$/, "A data vai no formato AAAA-MM-DD.")
   .refine((s) => !Number.isNaN(Date.parse(`${s}T00:00:00Z`)) && new Date(`${s}T00:00:00Z`).toISOString().slice(0, 10) === s, "Essa data não existe no calendário.");
 
-/** Os mesmos limites dos CHECK da 0209 — 422 em vez de 500 de constraint. */
+/** Os mesmos limites dos CHECK da 0244 — 422 em vez de 500 de constraint. */
 const alterarSchema = z
   .object({
     description: z.string().trim().min(1).max(200).optional(),
@@ -69,6 +70,9 @@ interface Contexto {
 }
 
 export async function PATCH(req: NextRequest, ctx: Contexto): Promise<Response> {
+  const supportDenied = await requireSupportWrite();
+  if (supportDenied) return supportDenied;
+
   const requestId = req.headers.get("x-request-id") ?? undefined;
   const authz = await requireRole("manager", { requestId, resource: "financial_obligations" });
   if (!authz.ok) return authz.response;

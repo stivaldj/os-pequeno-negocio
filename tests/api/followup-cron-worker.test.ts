@@ -15,7 +15,10 @@ import { runFollowupTick, createSupabaseAdminClient } from "@/lib/followup/engin
 
 vi.mock("@/lib/env", () => ({ env: { INTERNAL_SECRET: "dev-secret", INTERNAL_CRON_SECRET: "" } }));
 vi.mock("@/lib/audit", () => ({ audit: vi.fn(async () => undefined) }));
-vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn(() => ({ from: vi.fn() })) }));
+vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn(() => ({ from: vi.fn(), rpc: vi.fn(async()=>({data:0,error:null})) })) }));
+// O embrulho do fork (job_runs) chama createAdminClient antes da rota e consumiria o
+// mockReturnValueOnce do caso de confirmação. Tem teste próprio (lib/rotinas/registrar.test.ts).
+vi.mock("@/lib/rotinas/registrar", () => ({ comExecucaoDeRotina: (_nome: string, handler: unknown) => handler }));
 vi.mock("@/lib/followup/engine", () => ({
   runFollowupTick: vi.fn(),
   createSupabaseAdminClient: vi.fn(() => ({})),
@@ -71,5 +74,11 @@ describe("GET/POST /api/v1/cron/followup-flow-worker", () => {
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe("internal_error");
     expect(vi.mocked(audit)).not.toHaveBeenCalled();
+  });
+  it("leitura da confirmação indisponível recusa o tick sem auditar sucesso",async()=>{
+    vi.mocked(createAdminClient).mockReturnValueOnce({rpc:vi.fn(async()=>({data:null,error:{message:"database down"}}))} as never);
+    const {POST}=await import("@/app/api/v1/cron/followup-flow-worker/route");
+    expect((await POST(req({authorization:"Bearer dev-secret"}))).status).toBe(500);
+    expect(runFollowupTick).not.toHaveBeenCalled();expect(audit).not.toHaveBeenCalled();
   });
 });

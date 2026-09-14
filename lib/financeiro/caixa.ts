@@ -1,5 +1,5 @@
 /**
- * Caixa — o saldo que não mente (Spec 0003; migration 0209; decisão 3 do plano
+ * Caixa — o saldo que não mente (Spec 0003; migration 0244; decisão 3 do plano
  * da Fase 6).
  *
  * O Dono importa uma JANELA do extrato: um mês, uma semana. Somar os

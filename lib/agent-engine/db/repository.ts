@@ -12,6 +12,9 @@
  */
 import type pg from 'pg';
 
+// Vocabulário compartilhado de referências navegáveis; linhas legadas seguem defensivas.
+export type { InboxRefKind } from '@/lib/ai/inbox-destino';
+
 /**
  * O vocabulário dos avisos do runtime. Espelha o CHECK de
  * `agent_inbox_items.kind` — e o espelho é MECÂNICO: o invariante
@@ -23,7 +26,10 @@ import type pg from 'pg';
  * kind numa migration adiciona aqui na mesma mudança.
  */
 export type InboxKind =
+  | 'appointment_outcome_required'
+  | 'appointment_recovery_review'
   | 'qr_rescan'
+  | 'routing_unassigned'
   | 'job_dead'
   | 'event_dead'
   | 'budget_exceeded'
@@ -60,6 +66,11 @@ export type InboxKind =
   // nenhum trecho foi gravado. UM kind e não dois, porque quem lê a Central
   // quer saber que o material não entrou — o porquê é o corpo do aviso.
   | 'conhecimento_nao_indexado'
+  // (migration 0232) Chamada de voz que TOCOU e ninguém atendeu — inbound
+  // encerrada sem nunca ter passado por `connected`. O `end_reason` do upstream
+  // não distingue "tocou e ninguém pegou" de "o operador recusou", e para quem
+  // lê a Central os dois pedem a mesma coisa: alguém precisa ligar de volta.
+  | 'voice_call_missed'
   | 'other';
 
 export interface InboxItemRow {
@@ -120,7 +131,7 @@ export type InboxDedupe = 'kind' | 'kind_e_ref';
  * desfecho normal, não erro.
  */
 export async function insertInboxItem(
-  db: pg.Pool,
+  db: Pick<pg.Pool, "query">,
   tenantId: string | null, // null = plataforma (ex.: infra)
   input: { kind: InboxKind; title: string; severity?: InboxItemRow['severity']; body?: string; refKind?: string; refId?: string },
   dedupe?: InboxDedupe,

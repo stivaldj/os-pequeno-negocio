@@ -11,6 +11,7 @@ export interface OfficialChannelState {
    * vão para o SDK no navegador de qualquer jeito.
    */
   embeddedSignup: { available: boolean; appId: string | null; configId: string | null };
+  channel_session_id?: string | null;
   connected: boolean;
   /** Existe token gravado? O token em si NUNCA volta — ver a rota. */
   hasToken: boolean;

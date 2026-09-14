@@ -1,9 +1,9 @@
 /**
- * Migration 0209 (Fase 6): as quatro tabelas do financeiro existem, isolam por
+ * Migration 0244 (Fase 6): as quatro tabelas do financeiro existem, isolam por
  * organização e só deixam `manager` ou acima escrever. Um `viewer` da própria
  * org lê e não escreve; a org B não vê nada da A.
  *
- * Molde: `tests/invariants/ads-schema.test.ts` (0208).
+ * Molde: `tests/invariants/ads-schema.test.ts` (0243).
  *
  * O que este arquivo prova além da RLS, e por quê:
  *
@@ -65,7 +65,7 @@ beforeAll(() => {
   `);
 });
 
-describe("financeiro (0209)", () => {
+describe("financeiro (0244)", () => {
   it("as quatro tabelas existem com RLS ligada", () => {
     const out = sql(`select string_agg(relname || ':' || relrowsecurity, ',' order by relname) from pg_class where relname in (${TABELAS.map((t) => `'${t}'`).join(",")}) and relnamespace = 'public'::regnamespace;`);
     expect(out).toBe(TABELAS.slice().sort().map((t) => `${t}:true`).join(","));

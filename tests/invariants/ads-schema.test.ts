@@ -1,5 +1,5 @@
 /**
- * Migration 0208 (Fase 5): as seis tabelas de ads existem, isolam por
+ * Migration 0243 (Fase 5): as seis tabelas de ads existem, isolam por
  * organização e só deixam `manager` ou acima escrever. Um `viewer` da própria
  * org lê e não escreve; a org B não vê nada da A.
  */
@@ -46,7 +46,7 @@ beforeAll(() => {
   `);
 });
 
-describe("ads (0208)", () => {
+describe("ads (0243)", () => {
   it("as seis tabelas existem com RLS ligada", () => {
     const out = sql(`select string_agg(relname || ':' || relrowsecurity, ',' order by relname) from pg_class where relname in (${TABELAS.map((t) => `'${t}'`).join(",")}) and relnamespace = 'public'::regnamespace;`);
     expect(out).toBe(TABELAS.slice().sort().map((t) => `${t}:true`).join(","));

@@ -16,6 +16,7 @@ import type { Agendamento } from "@/components/agenda/tipos";
  * contra o nome do código). O SHA da branch estava alcançável, então li lá.
  */
 interface AgendamentoListado {
+  revision?:number;
   id: string;
   titulo: string;
   iniciaEm: string;
@@ -79,11 +80,21 @@ export function useAgendamentos(recorte: RecorteDaGrade | null) {
           (r as unknown as AgendamentoListado[]);
         return (lista ?? []).map((a) => ({
           id: a.id,
+          revision:a.revision,
           titulo: a.titulo,
           responsavelId: a.donoId ?? "",
           comeca: a.iniciaEm,
           termina: a.terminaEm,
-          origem: "ui" as const,
+          // A origem vem da ROTA, e não é mais carimbada aqui.
+          //
+          // Era `"ui"` fixo, e isso apagava a única coisa que distingue um bloco
+          // de ocupação do Google de um agendamento nosso — a grade usa a origem
+          // para desabilitar o clique, tirar o arraste e dizer "ocupado na
+          // agenda do Google" no rótulo acessível.
+          //
+          // `?? "ui"` mantém o fio tolerante a servidor mais velho que o
+          // cliente, como já faz o `quemSeraAtendido` logo abaixo.
+          origem: (a as { origem?: Agendamento["origem"] }).origem ?? "ui",
           situacao: a.situacao as Agendamento["situacao"],
           // Sem esta linha, montar o hook REGREDIRIA o conserto do "com quem":
           // a prop do servidor traz o nome, e o refetch o apagaria da grade.

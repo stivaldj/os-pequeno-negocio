@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { countAs, lastLine, sql } from "./gov-helpers";
 
 /**
- * `job_runs` — toda rotina do scheduler deixa rastro (migration 0205).
+ * `job_runs` — toda rotina do scheduler deixa rastro (migration 0240).
  *
  * A tabela é de PLATAFORMA, não de tenant: uma rotina de cron roda para a
  * instalação inteira, e `organization_id` é nulo na quase totalidade das linhas

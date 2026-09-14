@@ -46,10 +46,18 @@ describe("crm_list_event_types leva o preço ao Agente", () => {
 
 describe("PATCH compareceu com valor", () => {
   const updates: Record<string, unknown>[] = [];
-  const atual = { id: "ap-1", event_type_id: "t1", owner_user_id: "u1", contact_id: "c1", starts_at: "2026-09-01T12:00:00.000Z", status: "confirmed", time_zone: "America/Cuiaba" };
+  /** Filtros `.eq(coluna, valor)` de cada update, na mesma ordem de `updates`. */
+  const filtrosDosUpdates: Array<Array<[string, unknown]>> = [];
+  /** `p_patch` de cada chamada a `fn_appointment_change` — a mudança revisada. */
+  const mudancasRevisadas: Record<string, unknown>[] = [];
+  const atual = { id: "ap-1", event_type_id: "t1", owner_user_id: "u1", contact_id: "c1", starts_at: "2026-09-01T12:00:00.000Z", status: "confirmed", time_zone: "America/Cuiaba", revision: 1 };
   /** Dublê encadeável: qualquer cadeia resolve; `calendar_appointments` devolve `atual`, updates são capturados. */
   function chain(tabela: string, op: string, payload?: Record<string, unknown>): unknown {
-    if (op === "update" && payload) updates.push(payload);
+    const filtros: Array<[string, unknown]> = [];
+    if (op === "update" && payload) {
+      updates.push(payload);
+      filtrosDosUpdates.push(filtros);
+    }
     const proxy: Record<string, unknown> = new Proxy(
       {},
       {
@@ -61,6 +69,7 @@ describe("PATCH compareceu com valor", () => {
             });
           }
           if (prop === "then") return (ok: (v: unknown) => unknown) => ok({ data: [], error: null });
+          if (prop === "eq") return (coluna: string, valor: unknown) => (filtros.push([coluna, valor]), proxy);
           return () => proxy;
         },
       },
@@ -73,24 +82,37 @@ describe("PATCH compareceu com valor", () => {
       update: (payload: Record<string, unknown>) => chain(tabela, "update", payload),
       insert: (payload: Record<string, unknown>) => chain(tabela, "insert", payload),
     }),
-    rpc: async () => ({ data: null, error: null }),
+    // Status/horário passam pela RPC revisada do upstream; ela devolve a linha salva.
+    rpc: async (nome: string, args: { p_patch?: Record<string, unknown> }) => {
+      if (nome !== "fn_appointment_change") return { data: null, error: null };
+      mudancasRevisadas.push(args.p_patch ?? {});
+      return { data: { ...atual, ...args.p_patch, revision: atual.revision + 1 }, error: null };
+    },
   } as never;
   const ctx = { organization_id: "org-1", requestId: "req", actor: { type: "user", id: "u1" } } as never;
 
   beforeEach(() => {
     updates.length = 0;
+    filtrosDosUpdates.length = 0;
+    mudancasRevisadas.length = 0;
     vi.mocked(audit).mockClear();
   });
 
   it("grava paid_cents e paid_currency e audita agenda.appointment_paid", async () => {
     await alterarAgendamentoHandler(supabase, ctx, { id: "ap-1", status: "completed", paid_cents: 20000 });
-    expect(updates[0]).toMatchObject({ status: "completed", paid_cents: 20000, paid_currency: "BRL" });
+    expect(mudancasRevisadas[0]).toMatchObject({ status: "completed" });
+    // O valor não mexe na revisão: vai num update à parte, preso à organização.
+    expect(mudancasRevisadas[0]).not.toHaveProperty("paid_cents");
+    expect(updates[0]).toEqual({ paid_cents: 20000, paid_currency: "BRL" });
+    expect(filtrosDosUpdates[0]).toContainEqual(["organization_id", "org-1"]);
     expect(audit).toHaveBeenCalledWith(expect.objectContaining({ action: "agenda.appointment_paid", metadata: expect.objectContaining({ paid_cents: 20000 }) }));
   });
 
   it("compareceu sem valor não grava zero — dado faltante", async () => {
     await alterarAgendamentoHandler(supabase, ctx, { id: "ap-1", status: "completed" });
-    expect(updates[0]).not.toHaveProperty("paid_cents");
+    expect(mudancasRevisadas[0]).toMatchObject({ status: "completed" });
+    expect(mudancasRevisadas[0]).not.toHaveProperty("paid_cents");
+    expect(updates.some((u) => "paid_cents" in u)).toBe(false);
     expect(audit).not.toHaveBeenCalledWith(expect.objectContaining({ action: "agenda.appointment_paid" }));
   });
 

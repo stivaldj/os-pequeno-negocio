@@ -18,6 +18,7 @@ const BASE = {
   legal_name: "Clínica Humana LTDA",
   timezone: "America/Sao_Paulo",
   locale: "pt-BR",
+  currency: "BRL",
   media_retention_days: 90,
 };
 

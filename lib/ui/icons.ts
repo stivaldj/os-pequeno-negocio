@@ -34,6 +34,11 @@ export {
   Clock,
   // marca da instalação (o revendedor troca nome e cor do produto)
   Palette,
+  // anúncios (Análise → Meta Ads). Megaphone e não outro ChartX: os dois
+  // vizinhos do grupo já são gráficos (ChartBar em Desempenho, ChartLineUp em
+  // Evolução da IA), e um terceiro gráfico deixaria as três linhas do menu
+  // indistinguíveis de relance. Mesma família Phosphor, mesmo peso.
+  Megaphone,
   // health dashboard
   WifiHigh,
   Brain,
@@ -84,8 +89,12 @@ export {
   // conversation
   ChatCircle,
   Phone,
+  PhoneIncoming,
+  PhoneOutgoing,
+  PhoneX,
   Paperclip,
   Microphone,
+  MicrophoneSlash,
   Image as ImageIcon,
   ImageSquare,
   MusicNote,
@@ -99,6 +108,7 @@ export {
   // followup flow builder (Task 6.2)
   GitBranch,
   Flag,
+  TreeStructure,
   // misc
   DotsThree,
   CaretDown,
@@ -132,8 +142,6 @@ export {
   GoogleLogo,
   MapPin,
   ArrowsOutSimple,
-  // anúncios (Fase 5): a porta da tela de Anúncios no registro de navegação
-  Megaphone,
   // financeiro (Fase 6): a porta da tela do Financeiro — o extrato vem do banco
   Bank,
   // relatório das 8h (Fase 7): a porta da tela do Relatório

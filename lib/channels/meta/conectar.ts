@@ -10,6 +10,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { ARCHIVED_AT, queryTolerantToMissingArchived } from "../archived";
 import { CHANNEL_PROVIDER_META } from "../capabilities";
 import { reactivateChannelSession } from "../reactivate";
+import { metadataInicialDoCanal } from "@/lib/ai/elegibilidade/pre-go-live";
 import { encryptWebhookSecret } from "@/lib/webhooks/secrets";
 import { validateMetaCredentials } from "./validate-credentials";
 
@@ -90,7 +91,12 @@ export async function conectarCanalOficial(
           metadata: { provider: CHANNEL_PROVIDER_META, phone_number: linha.phone_number, coexistence: input.coexistence },
         },
       )
-    : await admin.from("channel_sessions").insert({ ...linha, webhook_secret_encrypted: cifrado });
+    : await admin.from("channel_sessions").insert({
+        ...linha,
+        webhook_secret_encrypted: cifrado,
+        // Todo canal criado pelo produto nasce fechado até uma abertura explícita.
+        metadata: metadataInicialDoCanal(),
+      });
   if (error) {
     return { ok: false, code: "internal_error", message: error.message ?? "channel_session_write_failed", status: 500 };
   }
