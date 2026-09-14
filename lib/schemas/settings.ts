@@ -11,6 +11,7 @@ import { z } from "zod";
 import { ehHexValido } from "@/lib/branding/rampa";
 import { ehWhatsappValido } from "@/lib/dono/config";
 import { IDIOMAS } from "@/lib/i18n/idiomas";
+import { MOEDAS_SERVIDAS } from "@/lib/money";
 
 import { conversationTagSchema } from "./messaging";
 
@@ -74,6 +75,13 @@ export const profileSchema = z.object({
 });
 export type ProfileInput = z.infer<typeof profileSchema>;
 
+/**
+ * As moedas servidas vêm de `lib/money`, pelo mesmo motivo que os idiomas vêm
+ * de `lib/i18n/idiomas`: com duas listas, uma moeda aceita aqui e ausente do
+ * seletor vira um valor que ninguém consegue mais escolher de volta.
+ */
+const MOEDAS = MOEDAS_SERVIDAS;
+
 export const tenantSchema = z.object({
   display_name: z.string().min(1).max(120),
   legal_name: z.string().min(1).max(200),
@@ -85,6 +93,7 @@ export const tenantSchema = z.object({
     .or(z.literal("").transform(() => null)),
   timezone: z.string().min(1).max(64),
   locale: z.enum(LOCALES),
+  currency: z.enum(MOEDAS),
   media_retention_days: z.coerce.number().int().min(30).max(3650),
   dpo_email: z
     .string()
@@ -238,3 +247,10 @@ export const marcaDaOrganizacaoSchema = z.object({
     .nullable(),
 });
 export type MarcaDaOrganizacaoInput = z.infer<typeof marcaDaOrganizacaoSchema>;
+
+/** Prazos por organização. Leitura legada degrada; escrita usa schema estrito. */
+export const agendaSettingsWriteSchema = z.strictObject({
+  confirmation_delay_minutes: z.number().int().min(1).max(10080),
+  unknown_protection_minutes: z.number().int().min(1).max(10080),
+}).refine(v => v.unknown_protection_minutes >= v.confirmation_delay_minutes, {message:"O prazo de proteção deve ser maior que o prazo de confirmação."});
+export const agendaSettingsSchema = agendaSettingsWriteSchema.catch({confirmation_delay_minutes:10,unknown_protection_minutes:1440});

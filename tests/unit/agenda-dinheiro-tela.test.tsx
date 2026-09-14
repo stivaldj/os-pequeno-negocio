@@ -79,6 +79,8 @@ const CONSULTA: TipoRow = {
   is_active: true,
   price_cents: 20000,
   margin_bps: 6000,
+  reminder_enabled: false,
+  reminder_minutes_before: 1440,
 };
 
 function renderTipos(tipos: TipoRow[] = []) {
@@ -88,6 +90,7 @@ function renderTipos(tipos: TipoRow[] = []) {
       pessoas={PESSOAS_DA_ORG}
       podeEditar
       usuarioAtualId="u-ana"
+      podeConfigurarGoogle={false}
     />,
   );
 }

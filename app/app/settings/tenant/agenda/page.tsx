@@ -39,14 +39,14 @@ export default async function TiposDeAgendamentoPage() {
   // `viewer` vê a lista (é informação de operação: quanto dura uma consulta);
   // criar e alterar é `manager`, e a rota cobra de novo — a tela esconder não é
   // autorização, é cortesia.
-  const podeEditar = user.is_platform_admin || ROLE_RANK[activeOrg.role] >= ROLE_RANK.manager;
+  const podeEditar = (user.is_platform_admin && !user.support) || ROLE_RANK[activeOrg.role] >= ROLE_RANK.manager;
 
   const supabase = await createClient();
   const [{ data: tipos }, { data: pessoas }] = await Promise.all([
     supabase
       .from("calendar_event_types")
       .select(
-        "id, name, slug, description, category, duration_minutes, location_kind, location_details, default_owner_user_id, requires_confirmation, is_active, price_cents, margin_bps",
+        "id, name, slug, description, category, duration_minutes, location_kind, location_details, default_owner_user_id, requires_confirmation, is_active, reminder_enabled, reminder_minutes_before, price_cents, margin_bps",
       )
       .eq("organization_id", activeOrg.orgId)
       .order("is_active", { ascending: false })
@@ -76,7 +76,7 @@ export default async function TiposDeAgendamentoPage() {
   return (
     <div className="flex h-full flex-col gap-6 p-6">
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Tipos de agendamento</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{t("Tipos de agendamento")}</h1>
         <p className="mt-1 text-sm text-text-muted">
           {t("O que se pode marcar, quanto dura e quem atende. É isto que a tela de marcar e o agente de IA oferecem ao cliente.")}
         </p>
@@ -90,6 +90,7 @@ export default async function TiposDeAgendamentoPage() {
             nomes.get(String(p.user_id)) ?? `${String(p.user_id).slice(0, 8)} · ${String(p.role)}`,
         }))}
         usuarioAtualId={user.id}
+        podeConfigurarGoogle={ROLE_RANK[activeOrg.role] >= ROLE_RANK.agent}
         podeEditar={podeEditar}
       />
     </div>

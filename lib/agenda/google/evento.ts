@@ -32,7 +32,7 @@
  *   escrevemos.
  * - `recurrence` — recorrência está fora do escopo (`03-DECISOES.md` §5). Nós
  *   lemos instância expandida; nunca criamos série.
- * - `conferenceData` / `conferenceDataVersion` / `sendUpdates` — não são corpo
+ * - `conferenceDataVersion` / `sendUpdates` — não são corpo
  *   de evento, são parâmetros da requisição. Moram na chamada, não aqui.
  * - `guestsCanSeeOtherGuests` — o padrão do Google já é `true`. Mandar o padrão
  *   é payload sem decisão dentro.
@@ -90,6 +90,20 @@ export interface ParticipanteDoAgendamento {
   nome?: string | null;
   /** O dono da agenda. Exatamente um participante deve marcar isto. */
   organizador?: boolean;
+  /**
+   * Este participante ainda NÃO confirmou nada aqui — o Google deve perguntar.
+   *
+   * O default (`false` ⇒ `responseStatus: "accepted"`) descreve o participante
+   * que já confirmou do nosso lado, e é por isso que ele é o default: cobrar
+   * RSVP de quem já disse sim no CRM seria pedir a mesma resposta duas vezes.
+   *
+   * O convidado DIGITADO À MÃO na tela é o caso oposto e por isso existe esta
+   * chave: ele nunca falou com o CRM, não confirmou coisa nenhuma, e mandá-lo
+   * como `accepted` produziria um convite que chega na caixa de entrada dele já
+   * respondido em seu nome — sem os botões "Sim / Talvez / Não", que são o
+   * motivo de se mandar convite do Google em vez de um e-mail comum.
+   */
+  aguardandoResposta?: boolean;
 }
 
 /** O subconjunto de `calendar_appointments` que o Google entende. */
@@ -131,6 +145,11 @@ export interface ParticipanteDoGoogle {
 
 /** O recurso `events` do Google, no recorte que lemos e escrevemos. */
 export interface EventoDoGoogle {
+  conferenceData?: unknown;
+  hangoutLink?: string | null;
+  etag?: string | null;
+  organizer?: ParticipanteDoGoogle | null;
+  originalStartTime?: InstanteDoGoogle | null;
   id?: string | null;
   status?: string | null;
   /** `default | outOfOffice | focusTime | workingLocation | birthday | fromGmail`. */
@@ -160,7 +179,23 @@ export interface CorpoDeEventoDoGoogle {
   end: { dateTime: string; timeZone: string };
   status: "confirmed" | "tentative" | "cancelled";
   transparency: "opaque";
-  iCalUID: string;
+  /**
+   * ⚠️ NÃO EXISTE MAIS, e a ausência é o conserto.
+   *
+   * O `events.insert` recebia `id` E `iCalUID` juntos, e a referência do Google
+   * diz que "only one of them should be supplied at event creation time".
+   * Medido em produção em 2026-09-01, a cada 5 minutos, por horas:
+   *
+   *   HTTP 400 — {"reason":"invalid","message":"Invalid resource id value."}
+   *
+   * O `id` foi medido e é válido (43 caracteres, todos em [a-v0-9]); o que
+   * violava contrato era a COPRESENÇA. `iCalUID` é do `events.import`, não do
+   * insert.
+   *
+   * Sai dos DOIS verbos, não só do POST: depois disto o evento no Google nasce
+   * com o uid que ELE gera, e um PUT tentando trocá-lo seria candidato ao mesmo
+   * 400 por outro caminho.
+   */
   reminders: { useDefault: true };
   attendees?: ParticipanteDoGoogle[];
   extendedProperties: { private: Record<string, string> };
@@ -184,16 +219,22 @@ const STATUS_PARA_GOOGLE: Record<StatusDoAgendamento, "confirmed" | "tentative" 
   no_show: "confirmed",
 };
 
-/** A identidade estável do evento, do nosso lado. */
-export function icalUidDoAgendamento(idDoAgendamento: string): string {
-  return `${idDoAgendamento}@${SUFIXO_ICAL_UID}`;
-}
-
-/** Este evento do Google foi criado por nós? É a primeira camada anti-eco. */
-export function ehIcalUidNosso(icalUid: string | null | undefined): boolean {
-  if (!icalUid) return false;
-  return icalUid.toLowerCase().endsWith(`@${SUFIXO_ICAL_UID}`);
-}
+/**
+ * ⚠️ `icalUidDoAgendamento` e `ehIcalUidNosso` FORAM REMOVIDAS aqui.
+ *
+ * O uid ia no corpo do evento junto do `id`, e a referência do `events.insert`
+ * proíbe os dois na criação. Medido em produção em 2026-09-01: HTTP 400,
+ * `Invalid resource id value`, a cada 5 minutos, por horas — e NENHUM
+ * compromisso jamais chegou ao Google, em instalação nenhuma.
+ *
+ * O reconhecimento anti-eco migrou para `ehEventoNosso` (`./escrita`), que olha
+ * o PREFIXO DO ID — nosso por construção, preservado pelo Google, e já
+ * disponível no mesmo ponto onde o filtro consultava o uid.
+ *
+ * Migrar não custou dado nenhum: não havia legado para reconhecer. E guardar as
+ * duas "para um `events.import` futuro" seria manter função pura sem consumidor
+ * — o cheiro que o cabeçalho de `escrita.ts` já nomeia como recurso pela metade.
+ */
 
 /**
  * O que escrever no campo `location`, que é o que a pessoa lê no calendário.
@@ -212,8 +253,9 @@ function localDoEvento(a: AgendamentoParaGoogle): string | undefined {
     case "whatsapp":
       return detalhes ? `WhatsApp — ${detalhes}` : "WhatsApp";
     case "video_link":
-    case "google_meet":
       return a.meeting_url?.trim() || detalhes || undefined;
+    case "google_meet":
+      return detalhes || undefined;
   }
 }
 
@@ -252,10 +294,15 @@ export function paraEventoDoGoogle(a: AgendamentoParaGoogle): CorpoDeEventoDoGoo
     if (!email) {
       throw new Error("participante sem e-mail: o Google recusa o evento inteiro, não só o convidado");
     }
-    // `responseStatus: "accepted"` de propósito: sem isso o Google trata o
-    // convite como pendente e passa a cobrar RSVP de quem já confirmou aqui.
-    // Quem silencia o e-mail do convite é `sendUpdates: "none"`, na chamada.
-    const convidado: ParticipanteDoGoogle = { email, responseStatus: "accepted" };
+    // `responseStatus: "accepted"` é o DEFAULT, e continua sendo de propósito:
+    // sem isso o Google trata o convite como pendente e passa a cobrar RSVP de
+    // quem já confirmou aqui. Quem digitou um convidado à mão na tela não
+    // confirmou nada — esse manda `aguardandoResposta` e recebe os botões de
+    // RSVP. Quem silencia o e-mail do convite é `sendUpdates`, na chamada.
+    const convidado: ParticipanteDoGoogle = {
+      email,
+      responseStatus: p.aguardandoResposta ? "needsAction" : "accepted",
+    };
     if (p.nome?.trim()) convidado.displayName = p.nome.trim();
     if (p.organizador) convidado.organizer = true;
     return convidado;
@@ -269,7 +316,6 @@ export function paraEventoDoGoogle(a: AgendamentoParaGoogle): CorpoDeEventoDoGoo
     // Compromisso nosso SEMPRE ocupa. Um agendamento que não ocupasse seria um
     // horário oferecido duas vezes.
     transparency: "opaque",
-    iCalUID: a.google_ical_uid?.trim() || icalUidDoAgendamento(a.id),
     reminders: { useDefault: true },
     extendedProperties: {
       private: {

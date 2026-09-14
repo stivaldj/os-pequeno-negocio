@@ -1,3 +1,4 @@
+import { requireSupportWrite } from "@/lib/impersonate/support";
 /**
  * GET  /api/v1/channels/official — estado da conexão oficial + o que colar na Meta.
  * POST /api/v1/channels/official — VALIDA a credencial e só então grava.
@@ -32,6 +33,7 @@ import { appDaMetaDoAmbiente } from "@/lib/channels/meta/coexistencia/embedded-s
 import { conectarCanalOficial } from "@/lib/channels/meta/conectar";
 import { env } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { traduzir } from "@/lib/i18n/dicionario";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -92,6 +94,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       ? { available: true, appId: app.appId, configId: app.configId }
       : { available: false, appId: null, configId: null },
     connected: Boolean(data),
+    channel_session_id: data?.id ?? null,
     // `hasToken` em vez do token: uma vez gravado, a tela mostra que EXISTE, nunca
     // qual é. Devolver o segredo para preencher o campo seria vazá-lo a cada render.
     hasToken: Boolean(data?.meta_token_encrypted),
@@ -112,15 +115,19 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  const supportDenied = await requireSupportWrite();
+  if (supportDenied) return supportDenied;
+
   const requestId = randomUUID();
   const authz = await requireRole("admin", { requestId, resource: "channels_official" });
   if (!authz.ok) return authz.response;
+  const t = (texto: string) => traduzir(texto, authz.user.idioma);
   const orgId = authz.org.orgId;
   const userId = authz.user.id;
 
   const parsed = conectarSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
-    return fail("invalid_request", "phone_number_id, waba_id e token são obrigatórios", 422, {
+    return fail("invalid_request", t("phone_number_id, waba_id e token são obrigatórios"), 422, {
       requestId,
     });
   }
@@ -134,7 +141,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     token,
     coexistence: false,
   });
-  if (!desfecho.ok) return fail(desfecho.code, desfecho.message, desfecho.status, { requestId });
+  if (!desfecho.ok) return fail(desfecho.code, t(desfecho.message), desfecho.status, { requestId });
   return ok({
     connected: true,
     displayName: desfecho.displayName,

@@ -11,7 +11,7 @@
  *   • O `organization_id` vem de `authz.org.orgId` e o body pode mandar outro:
  *     ele é IGNORADO. É a regra do service role (bypassa RLS, filtra à mão) e
  *     vale para as três mutações.
- *   • O Zod repete OS MESMOS LIMITES DOS CHECK da migration 0209 — um teste por
+ *   • O Zod repete OS MESMOS LIMITES DOS CHECK da migration 0244 — um teste por
  *     limite. Sem isso o Dono veria 500 "algo deu errado" onde cabia uma frase
  *     que ensina: `slug ~ '^[a-z0-9][a-z0-9-]{1,60}$'`, `kind in
  *     ('income','expense')`, `direction in ('payable','receivable')`,

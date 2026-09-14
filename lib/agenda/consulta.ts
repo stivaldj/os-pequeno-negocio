@@ -1,3 +1,4 @@
+import { googleRpc } from "./google/sync-store";
 /**
  * OS HORÁRIOS LIVRES DE UMA ORGANIZAÇÃO — a coleta, num lugar só.
  *
@@ -97,6 +98,7 @@ export type ResultadoDaConsulta =
        * um agente que o oferece MARCA por cima da cirurgia e confirma ao cliente.
        */
       agendaExternaNuncaLida: boolean;
+      googleCoberturaParcial: boolean;
     }
   | {
       ok: false;
@@ -246,7 +248,7 @@ export async function horariosLivresDaOrg(
     .eq("user_id", donoId);
 
   const { data: externosRaw, error: erroExt } = await supabase
-    .from("calendar_external_events")
+    .from("calendar_selected_external_events")
     .select("starts_at, ends_at, transparency, status, calendar_connections!inner(user_id, status)")
     .eq("organization_id", organizationId)
     .eq("calendar_connections.user_id", donoId)
@@ -302,8 +304,11 @@ export async function horariosLivresDaOrg(
     agora: params.agora,
   });
 
+  let googleCoberturaParcial = true;
+  try { googleCoberturaParcial = Boolean(await googleRpc(supabase, "fn_google_coverage", { p_org: organizationId, p_owner: donoId, p_start: params.de.toISOString(), p_end: params.ate.toISOString() })); } catch { /* leitura incerta não afirma cobertura */ }
   return {
     ok: true,
+    googleCoberturaParcial,
     slots,
     fusoDaRegra: leitura.jornada.timezone,
     publicouHorarios: leitura.publicouHorarios,
@@ -329,6 +334,9 @@ export async function horariosLivresDaOrg(
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface AgendamentoListado {
+  meetingState?: string;
+  meetingUrl?: string | null;
+  revision?:number;
   id: string;
   titulo: string;
   iniciaEm: string;
@@ -384,7 +392,15 @@ export interface ParametrosDaLista {
 
 export type ResultadoDaLista =
   | { ok: true; agendamentos: AgendamentoListado[] }
-  | { ok: false; codigo: "erro_interno" | "sem_alvo"; motivoParaOperador: string; motivoParaCliente: string };
+  | {
+      ok: false;
+      // `alvo_nao_e_lead`: o id veio no parâmetro `lead_id` e não é um negócio
+      // do funil — quase sempre um id de CONTATO, que é o que o contexto do
+      // turno chama de `lead_id`. Ver o ramo que o emite. (issue #509)
+      codigo: "erro_interno" | "sem_alvo" | "alvo_nao_e_lead";
+      motivoParaOperador: string;
+      motivoParaCliente: string;
+    };
 
 /** O embed do PostgREST vem objeto ou array conforme o gerador de tipos; aceite os dois. */
 function nomeDoContato(
@@ -451,15 +467,50 @@ export async function listaAgendamentos(
       };
     }
     idsPorLead = (data ?? []).map((l) => String(l.target_id));
-    // Lead sem nenhum vínculo: lista vazia é a resposta CERTA aqui — a pergunta era
-    // "o que este negócio tem marcado?" e a resposta é "nada". Diferente de não saber.
-    if (idsPorLead.length === 0) return { ok: true, agendamentos: [] };
+    if (idsPorLead.length === 0) {
+      // ⚠️ SEM VÍNCULO, HÁ DUAS HISTÓRIAS DIFERENTES — e só uma delas pode ser
+      // contada ao cliente.
+      //
+      // "Este negócio não tem nada marcado" é resposta CERTA, e o comentário
+      // que estava aqui defendia isso com razão. Mas ela era dada TAMBÉM quando
+      // o id nem é um lead — e no motor `leadId` É o `contact_id`
+      // (`inbound-turn.ts:1121`, `get-lead-context.ts:193`), enquanto o campo
+      // publicado no contexto do turno se chama `lead_id`. O modelo passava o
+      // id do contato para cá, a busca por vínculo não achava nada, e o agente
+      // NEGAVA ao cliente um compromisso que ele mesmo tinha acabado de marcar.
+      //
+      // Nada reclamava: consulta válida, lista vazia é legítima, e o modelo não
+      // tinha como suspeitar. A consulta abaixo separa as duas histórias, e só
+      // roda no ramo que já ia devolver vazio. (issue #509)
+      const { data: ehLead } = await supabase
+        .from("crm_leads")
+        .select("id")
+        .eq("organization_id", organizationId)
+        .eq("id", params.leadId)
+        .maybeSingle();
+
+      if (!ehLead) {
+        return {
+          ok: false,
+          codigo: "alvo_nao_e_lead",
+          motivoParaOperador:
+            `o id ${params.leadId} não é um negócio do funil. No contexto do turno, o campo ` +
+            "`lead_id` carrega o id do CONTATO — para consultar os compromissos de uma pessoa, " +
+            "use `contact_id`.",
+          motivoParaCliente:
+            "Não consegui confirmar a agenda dessa pessoa agora. NÃO diga que ela não tem nada " +
+            "marcado — diga que vai confirmar com a equipe.",
+        };
+      }
+      // Lead de verdade, sem nenhum vínculo: "nada marcado" é a resposta certa.
+      return { ok: true, agendamentos: [] };
+    }
   }
 
   let q = supabase
     .from("calendar_appointments")
     .select(
-      "id, title, starts_at, ends_at, time_zone, status, owner_user_id, contact_id, paid_cents, contacts(name, display_name), calendar_event_types(price_cents)",
+      "id, title, starts_at, ends_at, time_zone, status, revision, meeting_state, meeting_url, owner_user_id, contact_id, paid_cents, contacts(name, display_name), calendar_event_types(price_cents)",
     )
     .eq("organization_id", organizationId)
     .order("starts_at", { ascending: true })
@@ -512,6 +563,9 @@ export async function listaAgendamentos(
     agendamentos: (data ?? []).map((l) => ({
       id: String(l.id),
       titulo: String(l.title),
+      meetingState: l.meeting_state,
+      meetingUrl: l.meeting_state === "ready" ? l.meeting_url : null,
+      revision:Number(l.revision),
       iniciaEm: String(l.starts_at),
       terminaEm: String(l.ends_at),
       fuso: String(l.time_zone),
@@ -602,6 +656,18 @@ export interface TipoDeAtendimento {
   precoCents: number | null;
   /** Margem Declarada em pontos-base (6000 = 60%). Nulo = não declarada. */
   margemBps: number | null;
+  /**
+   * O LEMBRETE deste tipo — o que o cron `agenda-reminder` lê para decidir se
+   * manda mensagem, e quantos minutos antes.
+   *
+   * Também NÃO vão ao modelo, e pelo mesmo motivo dos quatro acima: a IA não
+   * dispara lembrete nem tem o que fazer com a antecedência dele. Estão aqui
+   * porque quem administra o cadastro precisa LER o estado antes de mudá-lo —
+   * uma tela que só sabe pedir "ligue" e nunca sabe se está ligado é o mesmo
+   * controle decorativo, invertido.
+   */
+  lembreteLigado: boolean;
+  lembreteAntecedenciaMin: number;
 }
 
 export type ResultadoDosTipos =
@@ -631,7 +697,7 @@ export async function listaTiposDeAtendimento(
   let q = supabase
     .from("calendar_event_types")
     .select(
-      "id, name, slug, description, category, duration_minutes, location_kind, location_details, requires_confirmation, is_active, default_owner_user_id, buffer_before_minutes, buffer_after_minutes, minimum_notice_minutes, booking_window_days, price_cents, margin_bps",
+      "id, name, slug, description, category, duration_minutes, location_kind, location_details, requires_confirmation, is_active, default_owner_user_id, buffer_before_minutes, buffer_after_minutes, minimum_notice_minutes, booking_window_days, price_cents, margin_bps, reminder_enabled, reminder_minutes_before",
     )
     // Service role bypassa a RLS: este filtro é a única proteção no caminho da
     // ferramenta MCP (ver o cabeçalho do arquivo).
@@ -669,6 +735,8 @@ export async function listaTiposDeAtendimento(
       janelaDeAgendamentoDias: Number(t.booking_window_days),
       precoCents: t.price_cents === null || t.price_cents === undefined ? null : Number(t.price_cents),
       margemBps: t.margin_bps === null || t.margin_bps === undefined ? null : Number(t.margin_bps),
+      lembreteLigado: Boolean(t.reminder_enabled),
+      lembreteAntecedenciaMin: Number(t.reminder_minutes_before),
     })),
   };
 }

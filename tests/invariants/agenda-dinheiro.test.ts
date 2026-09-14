@@ -1,5 +1,5 @@
 /**
- * Migration 0207 (ADR-0017): preço e Margem Declarada no serviço, valor pago
+ * Migration 0242 (ADR-0017): preço e Margem Declarada no serviço, valor pago
  * no Agendamento. Dinheiro em centavos, margem em pontos-base, nada negativo;
  * valor pago nulo é dado FALTANTE (a recepção não digitou), nunca zero.
  */
@@ -49,7 +49,7 @@ beforeAll(() => {
   `);
 });
 
-describe("dinheiro na agenda (0207)", () => {
+describe("dinheiro na agenda (0242)", () => {
   it("as colunas existem com os tipos certos", () => {
     const out = sql(`
       select column_name || ':' || data_type || ':' || is_nullable from information_schema.columns

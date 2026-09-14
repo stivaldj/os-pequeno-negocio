@@ -32,7 +32,7 @@ import { apiClient } from "@/lib/api/client";
 export function useRemarcarAgendamento() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (entrada: { id: string; starts_at: string }) =>
+    mutationFn: async (entrada: { id: string; revision?:number; starts_at: string; guest_email?: string }) =>
       apiClient.patch<{ data: { id: string } }>("/api/v1/agenda/agendamentos", entrada),
     onSuccess: () => {
       toast.success("Agendamento remarcado.");
@@ -47,7 +47,7 @@ export function useCancelarAgendamento() {
   return useMutation({
     // O `reason` é obrigatório na rota (mínimo 3 caracteres) e não é burocracia:
     // é o que a equipe lê ao ver o horário vago. A tela pede antes de chamar.
-    mutationFn: async (entrada: { id: string; reason: string }) =>
+    mutationFn: async (entrada: { id: string; revision?:number; reason: string }) =>
       apiClient.delete<{ data: { id: string } }>("/api/v1/agenda/agendamentos", entrada),
     onSuccess: () => {
       toast.success("Agendamento cancelado.");
@@ -89,13 +89,21 @@ export function useRegistrarDesfecho() {
     // ADR-0017: `paid_cents` só acompanha `completed`, e só quando a pessoa
     // informou. `undefined` NÃO vai no corpo — a ausência é "dado faltante",
     // que é diferente de zero, e a rota recusa o campo fora de `completed`.
-    mutationFn: async (entrada: { id: string; status: "completed" | "no_show"; paid_cents?: number }) =>
-      apiClient.patch<{ data: { id: string } }>(
-        "/api/v1/agenda/agendamentos",
-        entrada.status === "completed" && entrada.paid_cents !== undefined
-          ? { id: entrada.id, status: entrada.status, paid_cents: entrada.paid_cents }
-          : { id: entrada.id, status: entrada.status },
-      ),
+    // `revision` (upstream) é a trava otimista e segue junto quando conhecida.
+    mutationFn: async (entrada: {
+      id: string;
+      revision?: number;
+      status: "completed" | "no_show";
+      paid_cents?: number;
+    }) =>
+      apiClient.patch<{ data: { id: string } }>("/api/v1/agenda/agendamentos", {
+        id: entrada.id,
+        ...(entrada.revision !== undefined ? { revision: entrada.revision } : {}),
+        status: entrada.status,
+        ...(entrada.status === "completed" && entrada.paid_cents !== undefined
+          ? { paid_cents: entrada.paid_cents }
+          : {}),
+      }),
     onSuccess: (_dados, entrada) => {
       toast.success(
         entrada.status === "completed"

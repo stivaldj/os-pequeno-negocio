@@ -45,7 +45,7 @@ const dia = z
   .regex(/^\d{4}-\d{2}-\d{2}$/, "A data vai no formato AAAA-MM-DD.")
   .refine((s) => !Number.isNaN(Date.parse(`${s}T00:00:00Z`)) && new Date(`${s}T00:00:00Z`).toISOString().slice(0, 10) === s, "Essa data não existe no calendário.");
 
-/** Os mesmos limites dos CHECK da 0209 — 422 em vez de 500 de constraint. */
+/** Os mesmos limites dos CHECK da 0244 — 422 em vez de 500 de constraint. */
 const alterarSchema = z
   .object({
     description: z.string().trim().min(1).max(200).optional(),

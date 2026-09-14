@@ -1,3 +1,4 @@
+import { supportCallbackWriteAllowed } from "@/lib/impersonate/support";
 /**
  * GET /api/v1/agenda/google/callback — a volta do consentimento do Google.
  *
@@ -56,6 +57,7 @@ import { cookieSecure } from "@/lib/supabase/cookie-secure";
 import { escoposFaltando } from "@/lib/agenda/google/oauth";
 import { trocarCodigoPorToken } from "@/lib/agenda/google/token";
 import { contaDaAgendaPrimaria } from "@/lib/agenda/google/calendarios";
+import { classificarErroDoGoogle } from "@/lib/agenda/google/erros";
 import { env } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
@@ -220,6 +222,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // `code` do Google — que é de uso único — antes de descobrir que o `state`
   // era repetido, e quem apresentasse o legítimo receberia "código já usado",
   // um erro que aponta para o Google e não para o replay.
+  if (!(await supportCallbackWriteAllowed(organizationId, userId, estado.authSessionId))) return voltar("erro=retorno_nao_verificavel");
   const admin = createAdminClient();
   const { error: erroDoNonce } = await admin.from("calendar_oauth_nonces").insert({
     nonce: estado.nonce,
@@ -268,11 +271,39 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // 5. De quem é a agenda, e em que fuso ela vive.
   const conta = await contaDaAgendaPrimaria(token.access_token);
   if (!conta.ok) {
+    // ─── O MOTIVO do Google era jogado fora, e a tela mandava tentar de novo ──
+    //
+    // Medido em produção em 2026-09-01: três tentativas seguidas, todas
+    // `{"reason":"conta_indisponivel","detalhe":"HTTP 403"}`. O corpo do Google
+    // — que diz `accessNotConfigured`, `PERMISSION_DENIED` ou o que for — já
+    // vinha em `conta.erro` e morria aqui: nem auditoria, nem log.
+    //
+    // O custo não é só diagnóstico. 403 por API desligada NÃO passa com o
+    // tempo, e a tela dizia "Tente de novo" — mandando a pessoa repetir para
+    // sempre um caminho que não tem como funcionar. Um conselho errado é pior
+    // que nenhum, porque ocupa o lugar do certo.
+    //
+    // `classificarErroDoGoogle` já sabia ler esse corpo e já era usada no resto
+    // do módulo. Este era o único ponto que não a chamava.
+    const classificacao = classificarErroDoGoogle(conta.erro, "listar");
     await audit({
       action: "agenda.google.conexao_falhou",
       organizationId,
-      metadata: { reason: "conta_indisponivel", detalhe: conta.detalhe, user_id: userId },
+      metadata: {
+        reason: "conta_indisponivel",
+        detalhe: conta.detalhe,
+        // O que faltava para diagnosticar sem adivinhar.
+        motivo_do_google: classificacao.motivo,
+        mensagem_do_google: classificacao.mensagem,
+        user_id: userId,
+      },
     });
+    // `sem_permissao` é o 403 que NÃO é cota — o classificador já separa os
+    // dois. Ele merece tela própria porque a ação é do dono da instalação, no
+    // Google Cloud, e não da pessoa que clicou.
+    if (classificacao.desfecho === "sem_permissao") {
+      return voltar("erro=google_recusou_o_acesso");
+    }
     return voltar("erro=conta_indisponivel");
   }
 
@@ -401,6 +432,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   await audit({
+    actorUserId: userId,
+    actorAuthSessionId: estado.authSessionId,
     action: "agenda.google.conexao_concluida",
     organizationId,
     metadata: { user_id: userId, account_email: conta.conta.email, fuso: conta.conta.fuso },

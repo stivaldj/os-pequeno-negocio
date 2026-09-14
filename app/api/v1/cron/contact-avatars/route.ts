@@ -29,6 +29,7 @@ import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { comExecucaoDeRotina } from "@/lib/rotinas/registrar";
+import { PROVIDERS_DE_MENSAGEM } from "@/lib/channels/capabilities";
 
 export const dynamic = "force-dynamic";
 
@@ -131,6 +132,12 @@ async function handle(req: NextRequest): Promise<Response> {
         .select("waha_session_name, provider")
         .eq("organization_id", c.organization_id)
         .eq("status", "WORKING")
+        // Sem o filtro, a linha de chamada de voz (spec 18) — que nasce
+        // `WORKING` ao parear — podia ganhar este `limit(1)` sem ordenação e
+        // devolver `waha_session_name` nulo: a foto de todo mundo parava de
+        // atualizar em silêncio, com o `carimbar(null)` logo abaixo parecendo
+        // "este contato não tem foto".
+        .in("provider", [...PROVIDERS_DE_MENSAGEM])
         .limit(1)
         .maybeSingle();
       const ref = (sessao as { waha_session_name?: string | null } | null)?.waha_session_name;

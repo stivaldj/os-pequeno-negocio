@@ -1,5 +1,5 @@
 /**
- * CATEGORIAS DO LIVRO-CAIXA — `GET` lista, `PUT` cria-ou-altera (migration 0209).
+ * CATEGORIAS DO LIVRO-CAIXA — `GET` lista, `PUT` cria-ou-altera (migration 0244).
  *
  * Uma categoria por organização e `slug` (`unique (organization_id, slug)`),
  * por isso o verbo é `PUT` e a gravação é um upsert: o `slug` é a identidade
@@ -28,7 +28,7 @@ export const dynamic = "force-dynamic";
 const COLUNAS = "id, slug, name, kind, match_terms, created_at, updated_at";
 
 /**
- * Os mesmos limites do CHECK da migration 0209 — 422 em vez de 500 de
+ * Os mesmos limites do CHECK da migration 0244 — 422 em vez de 500 de
  * constraint: `slug ~ '^[a-z0-9][a-z0-9-]{1,60}$'`, `length(name) between 1
  * and 120`, `kind in ('income','expense')`.
  *

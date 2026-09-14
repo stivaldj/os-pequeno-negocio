@@ -19,11 +19,13 @@ Este kit sobe o **DeskcommCRM** no seu servidor VPS da HostGator. Você tem dois
 > de tentar subir um Caddy que não caberia. Ver
 > [VPS que já vem com proxy próprio](#vps-que-já-vem-com-proxy-próprio-hostinger-coolify-dokploy).
 
-## 🤖 Caminho fácil: deixe o Claude Code fazer
+## 🤖 Caminho fácil: deixe o assistente de código fazer
 
 1. Contrate um **VPS na HostGator** e acesse-o por SSH.
-2. Jogue esta pasta (ou o `.zip`) no chat do **Claude Code** rodando dentro do VPS.
-3. Diga: *"instala o DeskcommCRM pra mim"*. Ele lê o `CLAUDE.md` e conduz tudo —
+2. Clone o repositório (`git clone --depth 1 https://github.com/melgarafael/DeskcommCRM.git deskcommcrm`)
+   e abra a pasta no **Claude Code, Codex, Cursor, OpenCode ou Antigravity** dentro do VPS —
+   ou jogue só esta pasta no chat: o `CLAUDE.md` daqui manda clonar e abre o guia.
+3. Diga: *"instala o DeskcommCRM pra mim"*. O guia `deskcomm-instalar` conduz tudo —
    cria o banco, gera as senhas, sobe o CRM e te ajuda a conectar o WhatsApp.
 
 ## ⚙️ Caminho manual: um comando
@@ -85,6 +87,20 @@ Owner/Admin. Não dá para hospedar vários clientes numa conta só.
 | Banco de dados | Conta grátis no [supabase.com](https://supabase.com) (3 chaves + connection string) |
 | IA | Chave da [Anthropic](https://console.anthropic.com) |
 | WhatsApp | Seu número — conectado por QR code no onboarding |
+| Token do Supabase (opcional) | [supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens) — com ele o instalador configura sozinho os links dos e-mails de acesso. **Ele não fica salvo:** é usado uma vez e some com o processo |
+
+> **Sem esse token, um passo fica manual — e ele importa.** Os e-mails de
+> "esqueci minha senha", de confirmação de cadastro e de aceite de convite saem
+> com o endereço que estiver em **Authentication → URL Configuration** do seu
+> projeto Supabase. Ele nasce como `http://localhost:3000`, que só existe na
+> máquina de quem desenvolve — então o link chega quebrado para todo mundo, e
+> ninguém consegue redefinir a própria senha.
+>
+> Se você pular o token, o instalador termina avisando exatamente o que
+> preencher, com o seu domínio já escrito. Se preferir fazer agora:
+>
+> - **Site URL:** `https://SEU_DOMINIO`
+> - **Redirect URLs:** `https://SEU_DOMINIO/auth/confirm`
 
 ## Requisitos do VPS
 
