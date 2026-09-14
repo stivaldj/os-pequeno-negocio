@@ -82,10 +82,10 @@ CRONS="
 */5 * * * *|60|api/v1/cron/agenda-google-push
 # O LEMBRETE DE CONSULTA (Fase 4 do fork): lê reminder_enabled e
 # reminder_minutes_before do tipo e manda pela conversa do Paciente. O upstream
-# criou um segundo disparador (`agenda-reminder`) sobre as MESMAS colunas; o
+# criou um segundo disparador (agenda-reminder) sobre as MESMAS colunas; o
 # fork o apagou no sync da 1.20.0 para o Paciente não receber aviso em dobro —
-# o dele só olha compromisso `confirmed`, e o agendamento pelo WhatsApp nasce
-# `pending`.
+# o dele só olha compromisso confirmed, e o agendamento pelo WhatsApp nasce
+# pending.
 */10 * * * *|60|api/v1/cron/agenda-lembretes
 */15 * * * *|60|api/v1/cron/risk-watcher
 */30 * * * *|60|api/v1/cron/contact-phones
