@@ -152,6 +152,15 @@ jobs:
     # resolvem a jornada — e ela CONFERE a própria precondição em `beforeAll`,
     # falhando alto em vez de se auto-pular.
     #
+    # ═══ `autonomia-assistida`: O FORK APAGOU O BOTÃO "TESTE" QUE ELA ABRE ═══
+    #
+    # O primeiro passo da spec é "testa sem enviar": POST em
+    # `/api/v1/ai/agents/[id]/versions/[vid]/test` pelo TestPanel, com
+    # `INTERNAL_AGENT_RUN_STUB=true`. Os três saíram na Fase 1 do fork junto com o
+    # motor antigo (lib/ai/runtime), e a spec reprova no fixture antes de abrir a
+    # tela. Volta para uma PARTE quando a issue #26 (ensaio do agente no engine,
+    # dry-run) devolver o botão Teste pelo motor novo.
+    #
     # ═══ O 429 DE `olhar-telas-do-epico`: RESOLVIDO DUAS VEZES, EM CAMADAS DIFERENTES ═══
     #
     # A spec reprovava com **429** em TODAS as 7 telas, falha PRÉ-EXISTENTE NA MAIN (run
@@ -597,7 +606,6 @@ jobs:
       # todas. Os 3 arquivos que o cancelamento impediu de medir vêm junto, porque
       # eles são justamente o fim da fila.
       SPECS_PARTE_3: >-
-        autonomia-assistida.spec.ts
         roteamento-por-canal.spec.ts
         central-avisos-destino.spec.ts
         agenda-presenca-recuperacao.spec.ts
@@ -629,6 +637,7 @@ jobs:
         vps-fresh-onboarding.spec.ts
         inbox-tempo-real.spec.ts
         cadastro-sem-confirmacao-de-email.spec.ts
+        autonomia-assistida.spec.ts
     steps:
       - uses: actions/checkout@v7
 
