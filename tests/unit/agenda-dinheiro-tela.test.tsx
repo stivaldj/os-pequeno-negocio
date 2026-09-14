@@ -83,15 +83,22 @@ const CONSULTA: TipoRow = {
   reminder_minutes_before: 1440,
 };
 
+/**
+ * A tela de tipos, desde o upstream 1.20.0, abriga `PrazosDePresenca` (react-query)
+ * — no app o provider vem do layout; aqui ele vem do teste, como no histórico.
+ */
 function renderTipos(tipos: TipoRow[] = []) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   return render(
-    <TiposDeAgendamentoClient
-      tiposIniciais={tipos}
-      pessoas={PESSOAS_DA_ORG}
-      podeEditar
-      usuarioAtualId="u-ana"
-      podeConfigurarGoogle={false}
-    />,
+    <QueryClientProvider client={qc}>
+      <TiposDeAgendamentoClient
+        tiposIniciais={tipos}
+        pessoas={PESSOAS_DA_ORG}
+        podeEditar
+        usuarioAtualId="u-ana"
+        podeConfigurarGoogle={false}
+      />
+    </QueryClientProvider>,
   );
 }
 

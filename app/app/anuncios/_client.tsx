@@ -392,7 +392,7 @@ export function LinksDeCaptura({
             {links.map((l) => (
               <li key={l.id} data-testid={`link-${l.id}`} className="flex flex-wrap items-center gap-2 rounded-md border p-2 text-sm">
                 <span className="font-medium">{l.campaign_name ?? l.campaign_id}</span>
-                <code className="rounded bg-muted px-1 py-0.5">{l.url}</code>
+                <code className="rounded-sm bg-muted px-1 py-0.5">{l.url}</code>
                 {!l.active && <Badge variant="outline">{t("Inativo")}</Badge>}
                 <Button
                   type="button"

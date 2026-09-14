@@ -315,8 +315,8 @@ export function HistoricoDaAgenda({
           <DialogHeader>
             <DialogTitle>{t("Quanto foi pago?")}</DialogTitle>
             <DialogDescription>
-              {realizando?.quemSeraAtendido ?? (realizando ? t(realizando.titulo) : "")}
-              {realizando?.tipo ? ` · ${t(realizando.tipo)}` : ""}
+              {realizando?.quemSeraAtendido ?? realizando?.titulo ?? ""}
+              {realizando?.tipo ? ` · ${realizando.tipo}` : ""}
             </DialogDescription>
           </DialogHeader>
           <label className="flex flex-col gap-1 text-xs text-text-muted">

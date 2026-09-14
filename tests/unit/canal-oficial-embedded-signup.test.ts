@@ -11,6 +11,8 @@ import { audit } from "@/lib/audit";
 import type { ActiveOrg, AuthUser } from "@/lib/auth/types";
 
 vi.mock("@/lib/auth/require-role", () => ({ requireRole: vi.fn() }));
+// Este teste isola o handler; autoridade de suporte é exercitada na suíte própria.
+vi.mock("@/lib/impersonate/support", () => ({ requireSupportWrite: vi.fn(async () => null) }));
 vi.mock("@/lib/audit", () => ({ audit: vi.fn(async () => undefined), isServiceRoleConfigured: vi.fn(() => true) }));
 vi.mock("@/lib/channels/meta/validate-credentials", () => ({
   validateMetaCredentials: vi.fn(async () => ({

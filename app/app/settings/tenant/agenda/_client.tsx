@@ -302,7 +302,7 @@ export function TiposDeAgendamentoClient({
                   step="0.01"
                   value={rascunho.preco}
                   onChange={(e) => setRascunho((r) => ({ ...r, preco: e.target.value }))}
-                  className="rounded-md border border-border bg-surface-elevated p-2 text-sm text-text outline-none focus:border-border-strong"
+                  className="rounded-md border border-border bg-surface-elevated p-2 text-sm text-text outline-hidden focus:border-border-strong"
                 />
               </label>
               <label className="flex flex-col gap-1 text-xs font-medium text-text-muted">
@@ -318,7 +318,7 @@ export function TiposDeAgendamentoClient({
                   step="0.01"
                   value={rascunho.margem}
                   onChange={(e) => setRascunho((r) => ({ ...r, margem: e.target.value }))}
-                  className="rounded-md border border-border bg-surface-elevated p-2 text-sm text-text outline-none focus:border-border-strong"
+                  className="rounded-md border border-border bg-surface-elevated p-2 text-sm text-text outline-hidden focus:border-border-strong"
                 />
               </label>
               <label className="flex flex-col gap-1 text-xs font-medium text-text-muted sm:col-span-2">

@@ -144,20 +144,20 @@ export function ResumoDaImportacaoNaTela({
   return (
     <div className="space-y-3" data-testid="extrato-resumo">
       <div className="flex flex-wrap gap-2 text-sm">
-        <span className="rounded bg-surface px-2 py-1" data-testid="resumo-total">
+        <span className="rounded-sm bg-surface px-2 py-1" data-testid="resumo-total">
           {resumo.total_lancamentos} {t("lançamento(s) no arquivo")}
         </span>
-        <span className="rounded px-2 py-1 font-medium" data-testid="resumo-importados">
+        <span className="rounded-sm px-2 py-1 font-medium" data-testid="resumo-importados">
           {resumo.importados} {t("importado(s)")}
         </span>
-        <span className="rounded bg-surface px-2 py-1" data-testid="resumo-duplicados">
+        <span className="rounded-sm bg-surface px-2 py-1" data-testid="resumo-duplicados">
           {resumo.duplicados} {t("já existente(s)")}
         </span>
-        <span className="rounded bg-surface px-2 py-1" data-testid="resumo-saldos">
+        <span className="rounded-sm bg-surface px-2 py-1" data-testid="resumo-saldos">
           {resumo.saldos_gravados} {t("saldo(s) do banco gravado(s)")}
         </span>
         {resumo.descartados.length > 0 && (
-          <span className="rounded px-2 py-1 font-medium" data-testid="resumo-descartados">
+          <span className="rounded-sm px-2 py-1 font-medium" data-testid="resumo-descartados">
             {resumo.descartados.length} {t("descartado(s)")}
           </span>
         )}
@@ -166,7 +166,7 @@ export function ResumoDaImportacaoNaTela({
       {resumo.por_conteudo > 0 && (
         <p
           data-testid="resumo-por-conteudo"
-          className="rounded border border-yellow-600 p-2 text-sm text-yellow-700 dark:text-yellow-500"
+          className="rounded-sm border border-yellow-600 p-2 text-sm text-yellow-700 dark:text-yellow-500"
         >
           <span className="font-medium">
             {resumo.por_conteudo} {t("lançamento(s) sem identificador do banco.")}
@@ -180,7 +180,7 @@ export function ResumoDaImportacaoNaTela({
       {resumo.descartados.length > 0 && (
         <div
           data-testid="resumo-lista-descartados"
-          className="max-h-48 space-y-1 overflow-y-auto rounded border border-border p-2 text-sm"
+          className="max-h-48 space-y-1 overflow-y-auto rounded-sm border border-border p-2 text-sm"
         >
           {resumo.descartados.map((d, i) => (
             <p key={`${d.motivo}-${d.contexto}-${i}`}>

@@ -5,9 +5,17 @@ import { metadataInicialDoCanal } from "@/lib/ai/elegibilidade/pre-go-live";
 
 const RAIZ = process.cwd();
 
+// (fork) A criação do canal oficial saiu da rota para `lib/channels/meta/conectar.ts`,
+// que o caminho manual e o Embedded Signup (ADR-0015) compartilham — é lá que a
+// linha nasce, então é lá que a configuração inicial é medida.
 const CAMINHOS_DE_CRIACAO = [
-  "app/api/v1/channels/official/route.ts",
+  "lib/channels/meta/conectar.ts",
   "lib/channels/connect.ts",
+] as const;
+
+const ROTAS_DO_CANAL_OFICIAL = [
+  "app/api/v1/channels/official/route.ts",
+  "app/api/v1/channels/official/embedded-signup/route.ts",
 ] as const;
 
 describe("todo canal criado pela interface nasce em pré-go-live", () => {
@@ -15,6 +23,13 @@ describe("todo canal criado pela interface nasce em pré-go-live", () => {
     const fonte = readFileSync(resolve(RAIZ, arquivo), "utf8");
     expect(fonte).toMatch(/import \{ metadataInicialDoCanal \}/);
     expect(fonte).toMatch(/metadata:\s*metadataInicialDoCanal\(\)/);
+  });
+
+  it.each(ROTAS_DO_CANAL_OFICIAL)("%s cria só pelo conector compartilhado", (arquivo) => {
+    const fonte = readFileSync(resolve(RAIZ, arquivo), "utf8");
+    expect(fonte).toMatch(/import \{ conectarCanalOficial \} from "@\/lib\/channels\/meta\/conectar"/);
+    expect(fonte).toMatch(/await conectarCanalOficial\(/);
+    expect(fonte).not.toMatch(/from\("channel_sessions"\)\s*\.insert\(/);
   });
 
   it.each([

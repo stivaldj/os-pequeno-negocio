@@ -52,6 +52,13 @@ const LIBERADOS = new Map<string, string>([
     "cria a organização no provisionamento, antes de existir membro — não há " +
       "sessão de tenant para a RLS avaliar, e o cliente já é o de serviço.",
   ],
+  [
+    "lib/clinica/embarque.ts",
+    "(fork) o Embarque da clínica recebe o cliente INJETADO por parâmetro — o " +
+      "único chamador real é o CLI `scripts/clinica/embarque.ts`, que o cria com " +
+      "a service role; não existe sessão de usuário nesse caminho. O filtro " +
+      "`.eq(\"id\", orgId)` é explícito.",
+  ],
 ]);
 
 interface Achado {

@@ -57,6 +57,12 @@ vi.mock("@/lib/logger", () => ({
   logger: { warn: (...a: unknown[]) => avisos(...a), error: vi.fn(), info: vi.fn(), debug: vi.fn() },
 }));
 
+// O embrulho do fork (registro em `job_runs`) usa o admin client e o logger ANTES
+// da rota; o dublê abaixo só sabe ler `channel_sessions`, e o `warn` de "não
+// conseguiu abrir a linha" contaminaria as contagens de aviso. Ele tem teste
+// próprio (lib/rotinas/registrar.test.ts); aqui a pergunta é o laço do vigia.
+vi.mock("@/lib/rotinas/registrar", () => ({ comExecucaoDeRotina: (_nome: string, handler: unknown) => handler }));
+
 /** As linhas que a consulta desta rodada devolve. */
 let linhas: Array<Record<string, unknown>> = [];
 const atualizou = vi.fn();

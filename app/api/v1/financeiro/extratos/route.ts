@@ -19,6 +19,7 @@ import { type NextRequest } from "next/server";
 
 import { fail } from "@/lib/api/wrappers";
 import { requireRole } from "@/lib/auth/require-role";
+import { requireSupportWrite } from "@/lib/impersonate/support";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 import { importarExtratoHandler } from "./_handler";
@@ -26,6 +27,9 @@ import { importarExtratoHandler } from "./_handler";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest): Promise<Response> {
+  const supportDenied = await requireSupportWrite();
+  if (supportDenied) return supportDenied;
+
   const requestId = req.headers.get("x-request-id") ?? randomUUID();
   const authz = await requireRole("manager", { requestId, resource: "ledger_entries" });
   if (!authz.ok) return authz.response;

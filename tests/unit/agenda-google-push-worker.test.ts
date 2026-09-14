@@ -11,6 +11,10 @@ vi.mock("@/lib/audit", () => ({
   isServiceRoleConfigured: vi.fn(() => true),
 }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn() }));
+// O embrulho do fork (job_runs) usa o admin client antes da auth de propósito — o
+// 401 também vira linha `failed`. Ele tem teste próprio (lib/rotinas/registrar.test.ts);
+// aqui a pergunta é a rota: sem segredo, nenhum DB/efeito DELA.
+vi.mock("@/lib/rotinas/registrar", () => ({ comExecucaoDeRotina: (_nome: string, handler: unknown) => handler }));
 vi.mock("@/lib/agenda/google/sync-executor", () => ({ reconcileAppointment: vi.fn() }));
 vi.mock("@/lib/env", () => ({ env: { INTERNAL_CRON_SECRET: "cron", INTERNAL_SECRET: null } }));
 import { apenasDeMembrosAtivos } from "@/lib/agenda/google/membros";

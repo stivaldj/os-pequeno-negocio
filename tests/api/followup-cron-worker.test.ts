@@ -16,6 +16,9 @@ import { runFollowupTick, createSupabaseAdminClient } from "@/lib/followup/engin
 vi.mock("@/lib/env", () => ({ env: { INTERNAL_SECRET: "dev-secret", INTERNAL_CRON_SECRET: "" } }));
 vi.mock("@/lib/audit", () => ({ audit: vi.fn(async () => undefined) }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn(() => ({ from: vi.fn(), rpc: vi.fn(async()=>({data:0,error:null})) })) }));
+// O embrulho do fork (job_runs) chama createAdminClient antes da rota e consumiria o
+// mockReturnValueOnce do caso de confirmação. Tem teste próprio (lib/rotinas/registrar.test.ts).
+vi.mock("@/lib/rotinas/registrar", () => ({ comExecucaoDeRotina: (_nome: string, handler: unknown) => handler }));
 vi.mock("@/lib/followup/engine", () => ({
   runFollowupTick: vi.fn(),
   createSupabaseAdminClient: vi.fn(() => ({})),
